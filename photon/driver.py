@@ -3,7 +3,7 @@ from typing import Iterable, List, Optional
 from pywintypes import com_error
 from win32com.shell import shell, shellcon
 
-from photon.constants import DCIM_NAME, INTERNAL_STORAGE_NAME, PC_DISPLAY_NAME
+from photon.constants import DCIM_NAME, INTERNAL_STORAGE_NAME, PC_DISPLAY_NAMES
 from photon.file import DeviceFile
 from photon.types import DeviceInfo, PyIShellFolder
 
@@ -41,7 +41,7 @@ def _get_pc_folder() -> Optional[PyIShellFolder]:
     desktop = shell.SHGetDesktopFolder()
     for pidl in desktop.EnumObjects(0, shellcon.SHCONTF_FOLDERS):
         display_name = desktop.GetDisplayNameOf(pidl, shellcon.SHGDN_NORMAL)
-        if display_name in PC_DISPLAY_NAME:
+        if display_name in PC_DISPLAY_NAMES:
             return desktop.BindToObject(pidl, None, shell.IID_IShellFolder)
     return None
 
