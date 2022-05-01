@@ -12,6 +12,7 @@ from photon.constants import (
     INDEX_NAME,
 )
 from photon.types import IndexRow
+import win32con, win32api
 
 
 class Indexer:
@@ -67,9 +68,9 @@ class Indexer:
             if not file.is_file():
                 continue
             file = str(file)
-            if file == INDEX_NAME:
+            key = file.replace(f"{self._base_folder}{os.sep}", "")
+            if key == INDEX_NAME:
                 continue
-            key = file.replace(self._base_folder + "\\", "")
             keys.add(key)
             last_modified = os.path.getmtime(file)
             size = os.path.getsize(file)
@@ -92,10 +93,13 @@ class Indexer:
 
     def commit(self) -> None:
         self._report = {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: []}
+        if os.path.isfile(self._file_path):
+            os.unlink(self._file_path)
         with open(self._file_path, "w", newline="") as file:
             writer = csv.writer(file)
             for path, index_row in self._index.items():
                 writer.writerow([path, *index_row])
+        win32api.SetFileAttributes(self._file_path, win32con.FILE_ATTRIBUTE_HIDDEN)
 
     def match(self, path: str, last_modified: float, size: int) -> bool:
         return (
@@ -109,7 +113,6 @@ class Indexer:
 
     def get_duplicates(self, match_content_only: bool = True) -> List[List[str]]:
         groups = {}
-        duplicates = []
         for path, index_row in self._index.items():
             key = (
                 index_row.file_hash
@@ -117,13 +120,7 @@ class Indexer:
                 else f"{index_row.file_hash}|{index_row.last_modified}|{index_row.size}"
             )
             groups.setdefault(key, []).append(path)
-        for group in groups.values():
-            if len(group) > 0:
-                for file in group:
-                    # self._hash_file(file) ==
-                    pass
-                duplicates.append(group)
-        return duplicates
+        return [group for group in groups.values() if len(group) > 1]
 
     def get_managed_file_paths(self) -> List[str]:
         return list(

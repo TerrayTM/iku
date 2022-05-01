@@ -1,7 +1,7 @@
 from click import prompt
 from soupsieve import select
 from tqdm import tqdm
-
+import time
 from photon.core import begin_synchronization
 from photon.driver import bind_iphone_drivers
 from photon.parser import parse_args
@@ -16,14 +16,21 @@ from photon.version import __version__
 
 def main() -> int:
     args = parse_args()
+
     if args.show_version:
         print(__version__)
         return 0
+
+    if not args.folder:
+        print("No folder was given to sync to.")
+        return 0
+
     drivers = bind_iphone_drivers()
 
     if len(drivers) == 0:
-        print("No drivers detected")
-        return 1
+        print("No external storage detected")
+        return 0
+
     driver = drivers[0]
     if len(drivers) > 1:
         print("Found the following drivers:")
@@ -32,15 +39,17 @@ def main() -> int:
         selected = None
         while selected != "q":
             selected = prompt(f"Which one to use? (Enter 0-{len(drivers)}, q to quit)")
-            if (
-                selected.isnumeric()
-                and int(selected) >= 0
-                and int(selected) < len(drivers)
-            ):
-                driver = drivers[int(selected)]
-                break
+            if selected.isnumeric():
+                index = int(selected)
+                if index >= 0 and index < len(drivers):
+                    driver = drivers[index]
+                    break
+        else:
+            return 0
+
+    start_time = time.time()
     begin_synchronization(driver, args.folder)
-    print("process complete")
+    print(f"Elapsed time: {time.time() - start_time}s")
     return 0
 
 

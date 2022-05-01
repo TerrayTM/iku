@@ -1,4 +1,5 @@
 from typing import Iterable, List, Optional
+from django.template import base
 
 from pywintypes import com_error
 from win32com.shell import shell, shellcon
@@ -17,11 +18,14 @@ class iPhoneDriver:
 
     def list_files(self) -> Iterable[DeviceFile]:
         for folder_pidl in self._dcim_folder.EnumObjects(0, shellcon.SHCONTF_FOLDERS):
+            folder_name = self._dcim_folder.GetDisplayNameOf(
+                folder_pidl, shellcon.SHGDN_NORMAL
+            )
             folder = self._dcim_folder.BindToObject(
                 folder_pidl, None, shell.IID_IShellFolder
             )
             for pidl in folder.EnumObjects(0, shellcon.SHCONTF_NONFOLDERS):
-                yield DeviceFile(pidl, folder)
+                yield DeviceFile(pidl, folder, folder_name)
 
     def count_files(self) -> int:
         count = 0
