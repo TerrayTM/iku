@@ -1,11 +1,8 @@
 import csv
 import hashlib
 import os
-from glob import glob
-from typing import Dict, List
 from pathlib import Path
-
-from tqdm import tqdm
+from typing import Dict, List
 
 from photon.constants import (
     BUFFER_SIZE,
@@ -42,12 +39,12 @@ class Indexer:
             if value != self._index[key]:
                 self._report[DIFF_MODIFIED].append(key)
         else:
-            self._report[DIFF_MODIFIED].append(key)
+            self._report[DIFF_ADDED].append(key)
         self._index[key] = value
 
     def _pop_index(self, key: str) -> None:
-        self._index[key].pop(key)
-        self._report[DIFF_MODIFIED].append(key)
+        self._index.pop(key)
+        self._report[DIFF_REMOVED].append(key)
 
     def _hash_file(self, file_path: str) -> str:
         file_hash = hashlib.md5()
@@ -59,22 +56,27 @@ class Indexer:
                 file_hash.update(data)
         return file_hash.hexdigest()
 
-    def synchronize(self) -> None:
+    def destroy(self, file):
+        # assume file is managed by index
+        self._pop_index(file)
+        os.unlink(os.path.join(self._base_folder, file))
+
+    def synchronize(self, on_progress=None) -> None:
         keys = set()
-        for file in tqdm(Path(os.path.join(self._base_folder)).rglob("*")):
+        for file in Path(os.path.join(self._base_folder)).rglob("*"):
             if not file.is_file():
                 continue
             file = str(file)
-            if file == self._file_path:
+            if file == INDEX_NAME:
                 continue
             key = file.replace(self._base_folder + "\\", "")
             keys.add(key)
             last_modified = os.path.getmtime(file)
             size = os.path.getsize(file)
-            if self.match(key, last_modified, size):
-                continue
-            file_hash = self._hash_file(file)
-            self._set_index(key, IndexRow(file_hash, last_modified, size))
+            if not self.match(key, last_modified, size):
+                file_hash = self._hash_file(file)
+                self._set_index(key, IndexRow(file_hash, last_modified, size))
+            on_progress() if on_progress is not None else None
         for removed_key in set(self._index.keys()) - keys:
             self._pop_index(removed_key)
 
@@ -105,6 +107,34 @@ class Indexer:
     def validate(self, path: str, source_hash: str) -> bool:
         return path in self._index and self._index[path].file_hash == source_hash
 
+    def get_duplicates(self, match_content_only: bool = True) -> List[List[str]]:
+        groups = {}
+        duplicates = []
+        for path, index_row in self._index.items():
+            key = (
+                index_row.file_hash
+                if match_content_only
+                else f"{index_row.file_hash}|{index_row.last_modified}|{index_row.size}"
+            )
+            groups.setdefault(key, []).append(path)
+        for group in groups.values():
+            if len(group) > 0:
+                for file in group:
+                    # self._hash_file(file) ==
+                    pass
+                duplicates.append(group)
+        return duplicates
+
+    def get_managed_file_paths(self) -> List[str]:
+        return list(
+            file
+            for file in Path(os.path.join(self._base_folder)).rglob("*")
+            if file.is_file() and str(file) != INDEX_NAME
+        )
+
+    def count_managed_files(self) -> int:
+        return len(self.get_managed_file_paths())
+
     @property
     def diff_report(self) -> Dict[str, List[str]]:
         return self._report
@@ -112,3 +142,7 @@ class Indexer:
     @property
     def index_path(self) -> str:
         return self._file_path
+
+    @property
+    def index_count(self) -> int:
+        return len(self._index)

@@ -1,8 +1,8 @@
 from typing import Iterable
 
 import pythoncom
+from win32com.shell import shellcon
 
-import shellcon
 from photon.constants import BUFFER_SIZE, DCIM_NAME
 from photon.types import PIDL, FileInfo, PyIShellFolder
 
