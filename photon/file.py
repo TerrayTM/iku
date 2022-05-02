@@ -1,5 +1,6 @@
-from typing import Iterable
 import os
+from typing import Iterable
+
 import pythoncom
 from win32com.shell import shellcon
 

@@ -1,14 +1,12 @@
 import hashlib
 import os
-import time
+from ctypes import WinError, byref, get_last_error, windll, wintypes
 from pathlib import Path
 
 from tqdm import tqdm
 
-from photon import indexer
 from photon.driver import iPhoneDriver
 from photon.indexer import Indexer
-from ctypes import WinError, windll, wintypes, byref, get_last_error
 
 
 def _with_retry(callable, retries=3, args=()) -> bool:
@@ -48,7 +46,7 @@ def _write_to_target(target_path: str, file, indexer: Indexer) -> None:
     return True
 
 
-def synchronize_files(
+def _synchronize_files(
     iphone_device: iPhoneDriver,
     base_folder: str,
     indexer: Indexer,
@@ -64,7 +62,8 @@ def synchronize_files(
                 pass
         on_progress() if on_progress is not None else None
 
-    for file in set(indexer.get_managed_file_paths()) - iphone_files:
+    for file in set(indexer.get_managed_relative_paths()) - iphone_files:
+        print(indexer.get_managed_relative_paths())
         indexer.destroy(file)
 
     for dirpath, dirs, files in os.walk(base_folder):
@@ -72,7 +71,7 @@ def synchronize_files(
             os.rmdir(dirpath)
 
 
-def create_progress_bar(total: int):
+def _create_progress_bar(total: int):
     progress_bar = tqdm(total=total, leave=False)
     return lambda: progress_bar.update()
 
@@ -86,17 +85,14 @@ def _print_diff(diff) -> None:
 
 def begin_synchronization(driver: iPhoneDriver, base_folder: str) -> bool:
     indexer = Indexer(base_folder)
-    indexer.synchronize(
-        on_progress=None
-    )  # create_progress_bar(indexer.count_managed_files()))
+    indexer.synchronize(on_progress=_create_progress_bar(indexer.count_managed_files()))
     _print_diff(indexer.diff_report)
     indexer.commit()
-    synchronize_files(
+    _synchronize_files(
         driver,
         base_folder,
         indexer,
-        on_progress=None,  # create_progress_bar(driver.count_files()),
+        on_progress=_create_progress_bar(driver.count_files()),
     )
     _print_diff(indexer.diff_report)
     indexer.commit()
-    indexer.get_duplicates()

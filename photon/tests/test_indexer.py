@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import List
 from unittest import TestCase, main
 
-from photon.constants import DIFF_ADDED
+from photon.constants import DIFF_ADDED, DIFF_MODIFIED, DIFF_REMOVED
 from photon.indexer import Indexer
 
 
@@ -61,7 +61,12 @@ class TestIndexer(TestCase):
         self.assertEqual(0, indexer.index_count)
         indexer.synchronize()
         self.assertEqual(
-            indexer.diff_report, {DIFF_ADDED: list(self._index_map.keys())}
+            indexer.diff_report,
+            {
+                DIFF_ADDED: list(self._index_map.keys()),
+                DIFF_MODIFIED: [],
+                DIFF_REMOVED: [],
+            },
         )
         self.assertEqual(len(self._index_map), indexer.index_count)
         indexer.commit()
@@ -70,9 +75,8 @@ class TestIndexer(TestCase):
             self.assertEqual(file.readlines(), self._generate_expected_index())
 
     def test_load_index(self) -> None:
-        pass
-        # Indexer("test")
-        # pass
+        indexer = Indexer(self._base_folder)
+        self.assertEqual(12, indexer.index_count)
 
     # def test_load_index_failed(self) -> None:
     #     pass

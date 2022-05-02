@@ -1,7 +1,7 @@
-from click import prompt
-from soupsieve import select
-from tqdm import tqdm
 import time
+
+from click import prompt
+
 from photon.core import begin_synchronization
 from photon.driver import bind_iphone_drivers
 from photon.parser import parse_args
@@ -12,6 +12,7 @@ from photon.version import __version__
 # exception handling
 # parallism
 # other drivers?
+# logging
 
 
 def main() -> int:
@@ -49,7 +50,8 @@ def main() -> int:
 
     start_time = time.time()
     begin_synchronization(driver, args.folder)
-    print(f"Elapsed time: {time.time() - start_time}s")
+    total_seconds = round(time.time() - start_time, 2)
+    print(f"Elapsed time: {total_seconds}s")
     return 0
 
 

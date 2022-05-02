@@ -1,0 +1,2 @@
+class NotManagedByIndexException(Exception):
+    pass

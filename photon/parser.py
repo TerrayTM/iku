@@ -6,8 +6,8 @@ from photon.indexer import Indexer
 
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="iku",
-        description="Better tool for moving files.",
+        prog="ikuzo",
+        description="Fast and resumeable device-to-PC file synchronization tool.",
     )
     group = parser.add_mutually_exclusive_group()
     group2 = parser.add_argument_group()
@@ -29,6 +29,28 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--folder",
         help="The folder destination to synchronize the files to.",
     )
+    group2.add_argument(
+        "--diff-index",
+        help="The folder destination to synchronize the files to.",
+    )
+    group2.add_argument(
+        "--diff-files",
+        help="The folder destination to synchronize the files to.",
+    )
+    group2.add_argument(
+        "--clean",
+        help="The folder destination to synchronize the files to.",
+    )
+    group2.add_argument(
+        "--purge-index",
+        help="The folder destination to synchronize the files to.",
+    )
+    group2.add_argument(
+        "-c",
+        "--create",
+        help="The folder destination to synchronize the files to.",
+    )
+
     group.add_argument_group(group2)
     return parser
 

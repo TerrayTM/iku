@@ -1,5 +1,4 @@
 from typing import Iterable, List, Optional
-from django.template import base
 
 from pywintypes import com_error
 from win32com.shell import shell, shellcon
