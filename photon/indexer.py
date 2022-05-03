@@ -138,8 +138,11 @@ class Indexer:
         yield
 
         with delay_keyboard_interrupt():
-            if os.path.isfile(backup_path):
-                os.unlink(backup_path)
+            if os.path.isfile(path):
+                if os.path.isfile(backup_path):
+                    os.unlink(backup_path)
+            elif os.path.isfile(backup_path):
+                os.rename(backup_path, path)
 
             self._staged_index_data = None
 
@@ -372,6 +375,11 @@ class Indexer:
             Number of managed files.
         """
         return len(list(self.get_managed_relative_paths()))
+
+    @property
+    def staged_index_data(self) -> StagedIndexData:
+        """ """
+        return self._staged_index_data
 
     @property
     def diff_report(self) -> Dict[str, List[str]]:

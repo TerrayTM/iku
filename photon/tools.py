@@ -1,8 +1,10 @@
+import math
+import signal
 from contextlib import contextmanager
-from signal import signal
-from typing import ContextManager
-from tqdm import tqdm
 from ctypes import WinError, byref, get_last_error, windll, wintypes
+from typing import ContextManager
+
+from tqdm import tqdm
 
 
 @contextmanager
@@ -15,10 +17,21 @@ def create_progress_bar(description, total) -> ContextManager:
 
 
 @contextmanager
-def prevent_keyboard_interrupt() -> ContextManager:
-    handle = signal.signal(signal.SIGINT, signal.SIG_IGN)
+def delay_keyboard_interrupt() -> ContextManager:
+    interrupt_signal = None
+
+    def interrupt_handler(sig, frame):
+        nonlocal interrupt_signal
+        interrupt_signal = (sig, frame)
+
+    handler = signal.signal(signal.SIGINT, interrupt_handler)
+
     yield
-    signal.signal(signal.SIGINT, handle)
+
+    signal.signal(signal.SIGINT, handler)
+
+    if interrupt_signal is not None:
+        handler(*interrupt_signal)
 
 
 def print_diff(diff) -> None:
@@ -40,7 +53,9 @@ def with_retry(callable, retries=3, args=()) -> bool:
 def write_ctime(filepath, timestamp):
     timestamp = int((timestamp * 10000000) + 116444736000000000)
     ctime = wintypes.FILETIME(timestamp & 0xFFFFFFFF, timestamp >> 32)
-    handle = windll.kernel32.CreateFileW(filepath, 256, 0, None, 3, 128, None)
+    handle = wintypes.HANDLE(
+        windll.kernel32.CreateFileW(filepath, 256, 0, None, 3, 128, None)
+    )
 
     if handle.value == wintypes.HANDLE(-1).value:
         raise WinError(get_last_error())
@@ -50,3 +65,13 @@ def write_ctime(filepath, timestamp):
 
     if not wintypes.BOOL(windll.kernel32.CloseHandle(handle)):
         raise WinError(get_last_error())
+
+
+def format_file_size(size_bytes):
+    if size_bytes == 0:
+        return "0B"
+    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+    i = int(math.floor(math.log(size_bytes, 1024)))
+    p = math.pow(1024, i)
+    s = round(size_bytes / p, 2)
+    return "%s %s" % (s, size_name[i])
