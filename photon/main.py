@@ -18,12 +18,11 @@ from photon.version import __version__
 def main() -> int:
     args = parse_args()
 
+    if args is None:
+        return 1
+
     if args.show_version:
         print(__version__)
-        return 0
-
-    if not args.folder:
-        print("No folder was given to sync to.")
         return 0
 
     drivers = bind_iphone_drivers()

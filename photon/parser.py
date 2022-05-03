@@ -1,7 +1,6 @@
 import argparse
 import os
-
-from photon.indexer import Indexer
+from typing import Optional
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -50,18 +49,34 @@ def build_argument_parser() -> argparse.ArgumentParser:
         "--create",
         help="The folder destination to synchronize the files to.",
     )
+    group2.add_argument(
+        "-k",
+        "--non-destructive",
+        help="The folder destination to synchronize the files to.",
+    )
 
     group.add_argument_group(group2)
     return parser
 
 
 def validate_args(args) -> bool:
+    if not args.folder:
+        print("No folder was given to sync to.")
+        return False
+
+    if args.folder and not os.path.isdir(args.folder):
+        return False
+
+    args.folder = os.path.abspath(args.folder)
+
     return True
 
 
-def parse_args():
+def parse_args() -> Optional[argparse.Namespace]:
     parser = build_argument_parser()
     args = parser.parse_args()
+
     if not validate_args(args):
-        return
+        return None
+
     return args

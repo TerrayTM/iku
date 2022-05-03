@@ -2,8 +2,9 @@ import os
 from typing import Iterator
 
 import pythoncom
-from photon.exceptions import DeviceFileReadException
+
 from photon.constants import BUFFER_SIZE
+from photon.exceptions import DeviceFileReadException
 from photon.types import PIDL, FileInfo, PyIShellFolder
 
 

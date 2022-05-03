@@ -1,7 +1,7 @@
-from contextlib import contextmanager
 import csv
 import hashlib
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from typing import ContextManager, Dict, Iterator, List
 
@@ -16,12 +16,22 @@ from photon.constants import (
     INDEX_NAME,
 )
 from photon.exceptions import NotManagedByIndexException
-from photon.tools import prevent_keyboard_interrupt
+from photon.tools import delay_keyboard_interrupt
 from photon.types import IndexRow, StagedIndexData
 
 
 class Indexer:
     def __init__(self, base_folder: str) -> None:
+        """
+        The indexer controls the state of the destination folder such as what files are
+        present and what changes can be undone. Upon initialization, it will load the
+        saved index file if there is one.
+
+        Parameters
+        ----------
+        base_folder : str
+            The base folder where the user wants to synchronize files to.
+        """
         self._index = {}
         self._staged_index_data = None
         self._base_folder = base_folder
@@ -41,6 +51,17 @@ class Indexer:
                 os.unlink(self._index_path)
 
     def _set_index(self, key: str, value: IndexRow) -> None:
+        """
+        Sets the index and updates the diff report.
+
+        Parameters
+        ----------
+        key : str
+            The key of the index to set.
+
+        value : IndexRow
+            The index row associated with the key.
+        """
         if key in self._index:
             if value != self._index[key]:
                 self._diff_report[DIFF_MODIFIED].append(key)
@@ -49,12 +70,34 @@ class Indexer:
         self._index[key] = value
 
     def _pop_index(self, key: str) -> None:
+        """
+        Removes the index and updates the diff report.
+
+        Parameters
+        ----------
+        key : str
+            The key of the index to pop.
+        """
         self._index.pop(key)
         self._diff_report[DIFF_REMOVED].append(key)
 
-    def _hash_file(self, file_path: str) -> str:
+    def _hash_file(self, path: str) -> str:
+        """
+        Computes the MD5 hash of a given file.
+
+        Parameters
+        ----------
+        path : str
+            The absolute path of the file.
+
+        Returns
+        -------
+        result : str
+            The MD5 hash of the file.
+        """
         file_hash = hashlib.md5()
-        with open(file_path, "rb") as f:
+
+        with open(path, "rb") as f:
             while True:
                 data = f.read(BUFFER_SIZE)
                 if not data:
@@ -64,7 +107,26 @@ class Indexer:
 
     @contextmanager
     def stage(self, path: str, relative_path: str) -> ContextManager:
-        with prevent_keyboard_interrupt():
+        """
+        Prepares the indexer for potential changes to the file as given by path, or any
+        update calls on relative path. Used for staging changes that could be reverted
+        during the context.
+
+        Parameters
+        ----------
+        path : str
+            The absolute path of the file.
+
+        relative_path : str
+            The relative path of the file.
+
+        Returns
+        -------
+        result : ContextManager
+            Provides a context where any changes to the file or updates to the index
+            relating to the relative path would be staged.
+        """
+        with delay_keyboard_interrupt():
             backup_path = f"{path}.backup"
             self._staged_index_data = StagedIndexData(
                 path, relative_path, backup_path, self._index.get(relative_path)
@@ -75,45 +137,47 @@ class Indexer:
 
         yield
 
-        with prevent_keyboard_interrupt():
+        with delay_keyboard_interrupt():
             if os.path.isfile(backup_path):
                 os.unlink(backup_path)
 
             self._staged_index_data = None
 
     def revert(self) -> None:
-        if self._staged_index_data is None:
-            return
+        """
+        Reverts a change that is staged if there is one. Otherwise does nothing. This
+        will undo any update calls to the index with the staged relative path as well
+        as any destination file changes.
+        """
+        with delay_keyboard_interrupt():
+            if self._staged_index_data is None:
+                return
 
-        relative_path = self._staged_index_data.relative_path
-        index_row = self._staged_index_data.index_row
+            relative_path = self._staged_index_data.relative_path
+            index_row = self._staged_index_data.index_row
 
-        if index_row is None:
-            if relative_path in self._index:
-                self._index.pop(relative_path)
-                self._diff_report[DIFF_ADDED].remove(relative_path)
-        elif self._index[relative_path] != index_row:
-            self._index[relative_path] = index_row
-            self._diff_report[DIFF_MODIFIED].remove(relative_path)
+            if index_row is None:
+                if relative_path in self._index:
+                    self._index.pop(relative_path)
+                    self._diff_report[DIFF_ADDED].remove(relative_path)
+            elif self._index[relative_path] != index_row:
+                self._index[relative_path] = index_row
+                self._diff_report[DIFF_MODIFIED].remove(relative_path)
 
-        if os.path.exists(self._staged_index_data.path):
-            os.unlink(self._staged_index_data.path)
+            if os.path.exists(self._staged_index_data.path):
+                os.unlink(self._staged_index_data.path)
 
-        if os.path.isfile(self._staged_index_data.backup_path):
-            os.rename(self._staged_index_data.backup_path, self._staged_index_data.path)
+            if os.path.isfile(self._staged_index_data.backup_path):
+                os.rename(
+                    self._staged_index_data.backup_path, self._staged_index_data.path
+                )
 
-        self._staged_index_data = None
+            self._staged_index_data = None
 
     def destroy(self, relative_path: str) -> None:
         """
-        Gets the difference between current index that is in-memory versus the index
-        that is written on file.
-
-        Returns
-        -------
-        result : Dict[str, List[str]]
-            Dictionary of differences. For each entry, the key represents the difference
-            type (add, modify, or remove) and the value is the relative paths.
+        Removes the index row for the relative path from the index. Also deletes the
+        file that the relative path points to.
         """
         if not relative_path in self._index:
             raise NotManagedByIndexException()
@@ -122,6 +186,19 @@ class Indexer:
         os.unlink(os.path.join(self._base_folder, relative_path))
 
     def get_index(self, relative_path: str) -> IndexRow:
+        """
+        Gets the index row associated with the given relative path.
+
+        Parameters
+        ----------
+        relative_path : str
+            The relative path for the index row you want to query.
+
+        Returns
+        -------
+        result : IndexRow
+            The index row associated with the relative path.
+        """
         if not relative_path in self._index:
             raise NotManagedByIndexException
 
@@ -131,32 +208,56 @@ class Indexer:
         keys = set()
 
         for relative_path in self.get_managed_relative_paths():
-            keys.add(relative_path)
+            with delay_keyboard_interrupt():
+                keys.add(relative_path)
 
-            file_path = os.path.join(self._base_folder, relative_path)
-            last_modified = os.path.getmtime(file_path)
-            size = os.path.getsize(file_path)
+                file_path = os.path.join(self._base_folder, relative_path)
+                last_modified = os.path.getmtime(file_path)
+                size = os.path.getsize(file_path)
 
-            if not self.match(relative_path, last_modified, size):
-                file_hash = self._hash_file(file_path)
-                self._set_index(relative_path, IndexRow(file_hash, last_modified, size))
+                if not self.match(relative_path, last_modified, size):
+                    file_hash = self._hash_file(file_path)
+                    self._set_index(
+                        relative_path, IndexRow(file_hash, last_modified, size)
+                    )
 
-            on_progress() if on_progress is not None else None
+                on_progress() if on_progress is not None else None
 
         for removed_key in set(self._index.keys()) - keys:
             self._pop_index(removed_key)
 
-    def update(self, path: str, last_modified: float, size: int) -> None:
+    def update(self, relative_path: str, last_modified: float, size: int) -> None:
+        """
+        Updates the index for the relative path with the given properties. This method
+        will also compute and store the MD5 hash of the file.
+
+        Parameters
+        ----------
+        relative_path : str
+            The relative path for the index row you want to query.
+
+        last_modified: float
+            The timestamp of when the file was last modified.
+
+        size: int
+            The size of the file in bytes.
+        """
         self._set_index(
-            path,
+            relative_path,
             IndexRow(
-                self._hash_file(os.path.join(self._base_folder, path)),
+                self._hash_file(os.path.join(self._base_folder, relative_path)),
                 last_modified,
                 size,
             ),
         )
 
     def commit(self) -> None:
+        """
+        Writes the in-memory index to the index file.
+        """
+        if all(len(value) == 0 for value in self._diff_report.values()):
+            return
+
         self._diff_report = {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: []}
         if os.path.isfile(self._index_path):
             os.unlink(self._index_path)

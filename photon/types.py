@@ -38,3 +38,16 @@ class FileInfo(NamedTuple):
     identifier: IIDType
     state_bits: int
     storage_format: int
+
+
+class SynchronizationDetails(NamedTuple):
+    files_written: int
+    files_skipped: int
+    total_size: int
+    size_written: int
+    size_skipped: int
+
+
+class SynchronizationResult(NamedTuple):
+    success: bool
+    details: Optional[SynchronizationDetails]

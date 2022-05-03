@@ -1,12 +1,13 @@
 import hashlib
 import os
 from pathlib import Path
+
+from photon.driver import iPhoneDriver
 from photon.exceptions import DeviceFileReadException
 from photon.file import DeviceFile
-
-from photon.tools import create_progress_bar, write_ctime, print_diff, with_retry
-from photon.driver import iPhoneDriver
 from photon.indexer import Indexer
+from photon.tools import create_progress_bar, with_retry, write_ctime
+from photon.types import SynchronizationDetails, SynchronizationResult
 
 
 def _write_to_target(target_path: str, file: DeviceFile, indexer: Indexer) -> bool:
@@ -44,54 +45,81 @@ def _synchronize_files(
     base_folder: str,
     indexer: Indexer,
     on_progress=None,
-) -> bool:
+) -> SynchronizationResult:
     iphone_files = set()
+    files_written = 0
+    files_skipped = 0
+    total_size = 0
+    size_written = 0
+    size_skipped = 0
 
     for file in iphone_device.list_files():
         iphone_files.add(file.relative_path)
+        total_size += file.size
 
         if not indexer.match(file.relative_path, file.last_modified, file.size):
             target_path = os.path.join(base_folder, file.relative_path)
             Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
 
             if not with_retry(_write_to_target, args=(target_path, file, indexer)):
-                return False
+                return SynchronizationResult(False, None)
 
-        import time
+            files_written += 1
+            size_written += file.size
+        else:
+            files_skipped += 1
+            size_skipped += file.size
 
-        time.sleep(10)
         on_progress() if on_progress is not None else None
 
-    # for file in set(indexer.get_managed_relative_paths()) - iphone_files:
-    #     print(indexer.get_managed_relative_paths())
-    #     indexer.destroy(file)
+    for file in set(indexer.get_managed_relative_paths()) - iphone_files:
+        indexer.destroy(file)
 
-    # for dirpath, dirs, files in os.walk(base_folder):
-    #     if not dirs and not files:
-    #         os.rmdir(dirpath)
-    return True
+    for dirpath, dirs, files in os.walk(base_folder):
+        if not dirs and not files:
+            os.rmdir(dirpath)
+
+    return SynchronizationResult(
+        True,
+        SynchronizationDetails(
+            files_written, files_skipped, total_size, size_written, size_skipped
+        ),
+    )
 
 
-def begin_synchronization(driver: iPhoneDriver, base_folder: str) -> bool:
+def begin_synchronization(
+    driver: iPhoneDriver, base_folder: str
+) -> SynchronizationResult:
     indexer = Indexer(base_folder)
+    result = None
 
-    with create_progress_bar(
-        "Indexing (step 1/2)", indexer.count_managed_files()
-    ) as on_progress:
-        indexer.synchronize(on_progress)
+    try:
+        with create_progress_bar(
+            "Indexing (step 1/2)", indexer.count_managed_files()
+        ) as on_progress:
+            indexer.synchronize(on_progress)
+    except KeyboardInterrupt:
+        indexer.commit()
+        raise
 
     # print_diff(indexer.diff_report)
     indexer.commit()
 
-    with create_progress_bar(
-        "Synchronizing (step 2/2)", driver.count_files()
-    ) as on_progress:
-        _synchronize_files(
+    total_files = driver.count_files()
+    with create_progress_bar("Synchronizing (step 2/2)", total_files) as on_progress:
+        result = _synchronize_files(
             driver,
             base_folder,
             indexer,
             on_progress,
         )
+    print(f"Analyzed {total_files} files")
+    result = result.details
+    print(
+        f"Skipped {result.files_skipped} files/{result.size_skipped} Bytes and transferred {result.files_written} files/{result.size_written} Bytes"
+    )
 
     # print_diff(indexer.diff_report)
     indexer.commit()
+
+    return result
