@@ -1,4 +1,4 @@
-from typing import List, NamedTuple
+from typing import List, NamedTuple, Optional
 
 from pywintypes import IIDType, TimeType
 from win32com.shell import shell
@@ -11,6 +11,13 @@ class IndexRow(NamedTuple):
     file_hash: str
     last_modified: float
     size: int
+
+
+class StagedIndexData(NamedTuple):
+    path: str
+    relative_path: str
+    backup_path: str
+    index_row: Optional[IndexRow]
 
 
 class DeviceInfo(NamedTuple):

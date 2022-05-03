@@ -1,9 +1,8 @@
 import os
-from typing import Iterable
+from typing import Iterator
 
 import pythoncom
-from win32com.shell import shellcon
-
+from photon.exceptions import DeviceFileReadException
 from photon.constants import BUFFER_SIZE
 from photon.types import PIDL, FileInfo, PyIShellFolder
 
@@ -14,8 +13,14 @@ class DeviceFile:
         self._file_info = FileInfo(*self._stream.Stat())
         self._relative_path = os.path.join(parent_name, self._file_info.name)
 
-    def read(self) -> Iterable[bytes]:
-        yield self._stream.Read(BUFFER_SIZE)
+    def reset_seek(self) -> None:
+        self._stream.Seek(0, 0)
+
+    def read(self) -> Iterator[bytes]:
+        try:
+            yield self._stream.Read(BUFFER_SIZE)
+        except:
+            raise DeviceFileReadException()
 
     @property
     def relative_path(self) -> str:
