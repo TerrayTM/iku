@@ -3,9 +3,9 @@ from typing import Iterator
 
 import pythoncom
 
-from photon.constants import BUFFER_SIZE
-from photon.exceptions import DeviceFileReadException
-from photon.types import PIDL, FileInfo, PyIShellFolder
+from iku.constants import BUFFER_SIZE
+from iku.exceptions import DeviceFileReadException
+from iku.types import PIDL, FileInfo, PyIShellFolder
 
 
 class DeviceFile:

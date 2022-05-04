@@ -3,9 +3,9 @@ from typing import Iterable, List, Optional
 from pywintypes import com_error
 from win32com.shell import shell, shellcon
 
-from photon.constants import DCIM_NAME, INTERNAL_STORAGE_NAME, PC_DISPLAY_NAMES
-from photon.file import DeviceFile
-from photon.types import DeviceInfo, PyIShellFolder
+from iku.constants import DCIM_NAME, INTERNAL_STORAGE_NAME, PC_DISPLAY_NAMES
+from iku.file import DeviceFile
+from iku.types import DeviceInfo, PyIShellFolder
 
 
 class iPhoneDriver:

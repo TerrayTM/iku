@@ -6,7 +6,7 @@ from typing import ContextManager
 
 from tqdm import tqdm
 
-from photon.config import Config
+from iku.config import Config
 
 
 @contextmanager

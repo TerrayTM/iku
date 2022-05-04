@@ -3,13 +3,13 @@ import time
 from click import prompt
 from tabulate import tabulate
 
-from photon.config import Config
-from photon.console import format_cyan, format_green, format_red
-from photon.core import synchronize_to_folder
-from photon.driver import bind_iphone_drivers
-from photon.parser import parse_args
-from photon.tools import format_file_size
-from photon.version import __version__
+from iku.config import Config
+from iku.console import format_cyan, format_green, format_red
+from iku.core import synchronize_to_folder
+from iku.driver import bind_iphone_drivers
+from iku.parser import parse_args
+from iku.tools import format_file_size
+from iku.version import __version__
 
 # stats / how much data synchronized
 # progress report

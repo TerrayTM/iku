@@ -8,11 +8,11 @@ from typing import ContextManager, Dict, Iterator, List
 import win32api
 import win32con
 
-from photon.constants import (BACKUP_FILE_EXTENSION, BUFFER_SIZE, DIFF_ADDED,
+from iku.constants import (BACKUP_FILE_EXTENSION, BUFFER_SIZE, DIFF_ADDED,
                               DIFF_MODIFIED, DIFF_REMOVED, INDEX_NAME)
-from photon.exceptions import NotManagedByIndexException
-from photon.tools import delay_keyboard_interrupt
-from photon.types import IndexRow, StagedIndexData
+from iku.exceptions import NotManagedByIndexException
+from iku.tools import delay_keyboard_interrupt
+from iku.types import IndexRow, StagedIndexData
 
 
 class Indexer:

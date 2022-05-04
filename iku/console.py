@@ -1,4 +1,4 @@
-from photon.constants import (CONSOLE_CYAN, CONSOLE_END_COLOR, CONSOLE_GREEN,
+from iku.constants import (CONSOLE_CYAN, CONSOLE_END_COLOR, CONSOLE_GREEN,
                               CONSOLE_RED)
 
 

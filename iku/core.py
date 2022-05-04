@@ -2,14 +2,14 @@ import hashlib
 import os
 from pathlib import Path
 
-from photon.config import Config
-from photon.constants import STEP_ONE_TEXT, STEP_TWO_TEXT
-from photon.driver import iPhoneDriver
-from photon.exceptions import DeviceFileReadException
-from photon.file import DeviceFile
-from photon.indexer import Indexer
-from photon.tools import create_progress_bar, with_retry, write_ctime
-from photon.types import SynchronizationDetails, SynchronizationResult
+from iku.config import Config
+from iku.constants import STEP_ONE_TEXT, STEP_TWO_TEXT
+from iku.driver import iPhoneDriver
+from iku.exceptions import DeviceFileReadException
+from iku.file import DeviceFile
+from iku.indexer import Indexer
+from iku.tools import create_progress_bar, with_retry, write_ctime
+from iku.types import SynchronizationDetails, SynchronizationResult
 
 
 def _write_to_target(target_path: str, file: DeviceFile, indexer: Indexer) -> bool:
