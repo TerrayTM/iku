@@ -1,8 +1,20 @@
 PC_DISPLAY_NAMES = ("Computer", "This PC")
 DCIM_NAME = "DCIM"
 INTERNAL_STORAGE_NAME = "Internal Storage"
+
 INDEX_NAME = "index.csv"
+BACKUP_FILE_EXTENSION = ".backup"
+
 DIFF_ADDED = "+"
 DIFF_MODIFIED = "~"
 DIFF_REMOVED = "-"
+
+CONSOLE_CYAN = "\033[96m"
+CONSOLE_GREEN = "\033[92m"
+CONSOLE_RED = "\033[91m"
+CONSOLE_END_COLOR = "\033[0m"
+
+STEP_ONE_TEXT = "Indexing (step 1/2)"
+STEP_TWO_TEXT = "Synchronizing (step 2/2)"
+
 BUFFER_SIZE = 4194304

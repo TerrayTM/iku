@@ -1,4 +1,4 @@
-from typing import List, NamedTuple, Optional
+from typing import Dict, List, NamedTuple, Optional
 
 from pywintypes import IIDType, TimeType
 from win32com.shell import shell
@@ -43,11 +43,16 @@ class FileInfo(NamedTuple):
 class SynchronizationDetails(NamedTuple):
     files_written: int
     files_skipped: int
+    files_deleted: int
     total_size: int
     size_written: int
     size_skipped: int
+    current_relative_path: Optional[str]
 
 
 class SynchronizationResult(NamedTuple):
     success: bool
-    details: Optional[SynchronizationDetails]
+    files_analyzed: int
+    details: SynchronizationDetails
+    index_diff_report: Dict[str, List[str]]
+    sync_diff_report: Dict[str, List[str]]

@@ -1,10 +1,14 @@
 import time
 
 from click import prompt
+from tabulate import tabulate
 
-from photon.core import begin_synchronization
+from photon.config import Config
+from photon.console import format_cyan, format_green, format_red
+from photon.core import synchronize_to_folder
 from photon.driver import bind_iphone_drivers
 from photon.parser import parse_args
+from photon.tools import format_file_size
 from photon.version import __version__
 
 # stats / how much data synchronized
@@ -12,7 +16,6 @@ from photon.version import __version__
 # exception handling
 # parallism
 # other drivers?
-# logging
 
 
 def main() -> int:
@@ -20,6 +23,9 @@ def main() -> int:
 
     if args is None:
         return 1
+
+    Config.silent = args.silent
+    Config.destructive = args.destructive
 
     if args.show_version:
         print(__version__)
@@ -47,11 +53,45 @@ def main() -> int:
         else:
             return 0
 
+    rc = 0
     start_time = time.time()
-    begin_synchronization(driver, args.folder)
+
+    try:
+        result = synchronize_to_folder(driver, args.folder)
+
+        table = []
+        table = tabulate(
+            [
+                ["Files Analyzed", format_cyan(result.files_analyzed)],
+                ["Files Written", format_cyan(result.details.files_written)],
+                ["Files Skipped", format_cyan(result.details.files_skipped)],
+                [
+                    "Total Size of Files",
+                    format_cyan(format_file_size(result.details.total_size)),
+                ],
+                [
+                    "Size Written",
+                    format_cyan(format_file_size(result.details.size_written)),
+                ],
+                [
+                    "Size Skipped",
+                    format_cyan(format_file_size(result.details.size_skipped)),
+                ],
+            ],
+            tablefmt="pretty",
+        )
+        table_width = len(table.split("\n")[0])
+        print(f"+{'-' * (table_width - 2)}+")
+        print(f"| Summary{' ' * (table_width - 10)}|")
+        print(table)
+    except KeyboardInterrupt:
+        rc = 1
+
     total_seconds = round(time.time() - start_time, 2)
-    print(f"Elapsed time: {total_seconds}s")
-    return 0
+    status = format_green("[OK]") if not rc else format_red("[INTERRUPT]")
+    print(f"{status} Elapsed time: {format_cyan(f'{total_seconds}s')}")
+
+    return rc
 
 
 if __name__ == "__main__":

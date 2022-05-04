@@ -4,14 +4,15 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
-from typing import Iterator, List, Dict
+from typing import Dict, Iterator, List
 from unittest import TestCase, main
 
-from photon.types import IndexRow, StagedIndexData
-from photon.constants import DIFF_ADDED, DIFF_MODIFIED, DIFF_REMOVED
+from photon.constants import (
+    BACKUP_FILE_EXTENSION, DIFF_ADDED, DIFF_MODIFIED, DIFF_REMOVED, INDEX_NAME)
+from photon.exceptions import NotManagedByIndexException
 from photon.indexer import Indexer
 from photon.tests.tools import SequentialTestLoader
-from photon.exceptions import NotManagedByIndexException
+from photon.types import IndexRow, StagedIndexData
 
 
 class TestIndexer(TestCase):
@@ -41,6 +42,11 @@ class TestIndexer(TestCase):
             with open(full_path, "wb") as file:
                 file.write(data)
         cls._base_folder = base_folder
+        cls._empty_diff_report = {
+            DIFF_ADDED: [],
+            DIFF_MODIFIED: [],
+            DIFF_REMOVED: [],
+        }
 
     @classmethod
     def tearDownClass(cls):
@@ -92,14 +98,7 @@ class TestIndexer(TestCase):
         self.assertEqual(12, indexer.index_count)
         for key, value in self._generate_expected_index_rows().items():
             self.assertEqual(value, indexer.get_index(key))
-        self.assertEqual(
-            indexer.diff_report,
-            {
-                DIFF_ADDED: [],
-                DIFF_MODIFIED: [],
-                DIFF_REMOVED: [],
-            },
-        )
+        self.assertEqual(indexer.diff_report, self._empty_diff_report)
 
     def test_destroy(self) -> None:
         indexer = Indexer(self._base_folder)
@@ -203,6 +202,7 @@ class TestIndexer(TestCase):
         self._index_map["value"] = ("e9d58068fce4cf9b185bc5e41c757423", "256")
         self._index_map["one\\value"] = ("9f297dcc8acf39c43b08d8e99a53ab76", "256")
         self._index_map["one\\A"] = ("0b6bf4795989136bcce920caf113347e", "256")
+        self.assertRaises(FileNotFoundError, indexer.update, "M", 100.0, 200)
 
     def test_match(self) -> None:
         indexer = Indexer(self._base_folder)
@@ -241,18 +241,26 @@ class TestIndexer(TestCase):
         indexer = Indexer(self._base_folder)
         test_path = os.path.join(self._base_folder, "ABC")
         expected_data = StagedIndexData(
-            test_path, "ABC", f"{test_path}.backup", None
-        )  # use constnat
+            test_path, "ABC", f"{test_path}{BACKUP_FILE_EXTENSION}", None
+        )
         self.assertIsNone(indexer.staged_index_data)
         with indexer.stage(expected_data.path, expected_data.relative_path):
             self.assertEqual(expected_data, indexer.staged_index_data)
+            self._write_random_file(expected_data.path, 512)
         self.assertIsNone(indexer.staged_index_data)
+        self.assertTrue(os.path.isfile(expected_data.path))
+        self.assertFalse(os.path.isfile(expected_data.backup_path))
         try:
             with indexer.stage(expected_data.path, expected_data.relative_path):
+                self.assertFalse(os.path.isfile(expected_data.path))
+                self.assertTrue(os.path.isfile(expected_data.backup_path))
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             pass
         self.assertEqual(expected_data, indexer.staged_index_data)
+        self.assertFalse(os.path.isfile(expected_data.path))
+        self.assertTrue(os.path.isfile(expected_data.backup_path))
+        os.unlink(expected_data.backup_path)
 
     def test_stage_existing_file(self) -> None:
         indexer = Indexer(self._base_folder)
@@ -260,9 +268,9 @@ class TestIndexer(TestCase):
         expected_data = StagedIndexData(
             test_path,
             "one\\value",
-            f"{test_path}.backup",
+            f"{test_path}{BACKUP_FILE_EXTENSION}",
             indexer.get_index("one\\value"),
-        )  # use constnat
+        )
         self.assertIsNone(indexer.staged_index_data)
         with indexer.stage(expected_data.path, expected_data.relative_path):
             self.assertEqual(expected_data, indexer.staged_index_data)
@@ -279,17 +287,139 @@ class TestIndexer(TestCase):
         self.assertEqual(expected_data, indexer.staged_index_data)
         self.assertTrue(os.path.isfile(expected_data.backup_path))
         self.assertFalse(os.path.isfile(expected_data.path))
+        os.rename(expected_data.backup_path, expected_data.path)
 
     def test_revert_new_file(self) -> None:
         indexer = Indexer(self._base_folder)
+        test_path = os.path.join(self._base_folder, "ABC")
+        expected_data = StagedIndexData(
+            test_path, "ABC", f"{test_path}{BACKUP_FILE_EXTENSION}", None
+        )
+        with indexer.stage(expected_data.path, expected_data.relative_path):
+            self._write_random_file(expected_data.path, 512)
+            self.assertTrue(os.path.isfile(expected_data.path))
+            indexer.update(expected_data.relative_path, 100.0, 512)
+            self.assertEqual(
+                indexer.get_index(expected_data.relative_path).last_modified, 100.0
+            )
+            self.assertEqual(
+                indexer.diff_report,
+                {
+                    DIFF_ADDED: ["ABC"],
+                    DIFF_MODIFIED: [],
+                    DIFF_REMOVED: [],
+                },
+            )
+            indexer.revert()
+        self.assertEqual(indexer.diff_report, self._empty_diff_report)
+        self.assertFalse(os.path.isfile(expected_data.path))
+        self.assertFalse(os.path.isfile(expected_data.backup_path))
+        self.assertRaises(
+            NotManagedByIndexException, indexer.get_index, expected_data.relative_path
+        )
+        self.assertIsNone(indexer.staged_index_data)
+        indexer.revert()
+        for key, value in self._generate_expected_index_rows().items():
+            self.assertEqual(value, indexer.get_index(key))
+        try:
+            with indexer.stage(expected_data.path, expected_data.relative_path):
+                self._write_random_file(expected_data.path, 512)
+                raise KeyboardInterrupt
+        except KeyboardInterrupt:
+            indexer.revert()
+            self.assertEqual(indexer.diff_report, self._empty_diff_report)
+            self.assertFalse(os.path.isfile(expected_data.path))
+            self.assertFalse(os.path.isfile(expected_data.backup_path))
+            self.assertIsNone(indexer.staged_index_data)
+        try:
+            with indexer.stage(expected_data.path, expected_data.relative_path):
+                self._write_random_file(expected_data.path, 512)
+                indexer.update(expected_data.relative_path, 100.0, 512)
+                raise KeyboardInterrupt
+        except KeyboardInterrupt:
+            indexer.revert()
+            self.assertEqual(indexer.diff_report, self._empty_diff_report)
+            self.assertFalse(os.path.isfile(expected_data.path))
+            self.assertFalse(os.path.isfile(expected_data.backup_path))
+            self.assertRaises(
+                NotManagedByIndexException,
+                indexer.get_index,
+                expected_data.relative_path,
+            )
+            self.assertIsNone(indexer.staged_index_data)
 
     def test_revert_existing_file(self) -> None:
         indexer = Indexer(self._base_folder)
+        test_path = os.path.join(self._base_folder, "one\\value")
+        expected_data = StagedIndexData(
+            test_path, "one\\value", f"{test_path}{BACKUP_FILE_EXTENSION}", None
+        )
+        with open(test_path, "rb") as file:
+            original_data = file.read()
+        with indexer.stage(expected_data.path, expected_data.relative_path):
+            self._write_random_file(expected_data.path, 16)
+            self.assertTrue(os.path.isfile(expected_data.path))
+            with open(test_path, "rb") as file:
+                self.assertNotEqual(original_data, file.read())
+            indexer.update(expected_data.relative_path, 200.0, 16)
+            self.assertEqual(
+                indexer.get_index(expected_data.relative_path).last_modified, 200.0
+            )
+            self.assertEqual(
+                indexer.diff_report,
+                {
+                    DIFF_ADDED: [],
+                    DIFF_MODIFIED: ["one\\value"],
+                    DIFF_REMOVED: [],
+                },
+            )
+            indexer.revert()
+        self.assertEqual(indexer.diff_report, self._empty_diff_report)
+        self.assertTrue(os.path.isfile(expected_data.path))
+        self.assertFalse(os.path.isfile(expected_data.backup_path))
+        with open(test_path, "rb") as file:
+            self.assertEqual(original_data, file.read())
+        self.assertEqual(
+            indexer.get_index(expected_data.relative_path).file_hash,
+            self._index_map["one\\value"][0],
+        )
+        self.assertIsNone(indexer.staged_index_data)
+        try:
+            with indexer.stage(expected_data.path, expected_data.relative_path):
+                self._write_random_file(expected_data.path, 16)
+                raise KeyboardInterrupt
+        except KeyboardInterrupt:
+            indexer.revert()
+            self.assertEqual(indexer.diff_report, self._empty_diff_report)
+            self.assertTrue(os.path.isfile(expected_data.path))
+            self.assertFalse(os.path.isfile(expected_data.backup_path))
+            with open(test_path, "rb") as file:
+                self.assertEqual(original_data, file.read())
+            self.assertIsNone(indexer.staged_index_data)
+        try:
+            with indexer.stage(expected_data.path, expected_data.relative_path):
+                self._write_random_file(expected_data.path, 16)
+                indexer.update(expected_data.relative_path, 200.0, 16)
+                raise KeyboardInterrupt
+        except KeyboardInterrupt:
+            indexer.revert()
+            self.assertEqual(indexer.diff_report, self._empty_diff_report)
+            self.assertTrue(os.path.isfile(expected_data.path))
+            self.assertFalse(os.path.isfile(expected_data.backup_path))
+            with open(test_path, "rb") as file:
+                self.assertEqual(original_data, file.read())
+            self.assertEqual(
+                indexer.get_index(expected_data.relative_path).file_hash,
+                self._index_map["one\\value"][0],
+            )
+            self.assertIsNone(indexer.staged_index_data)
 
     def test_load_index_failed(self) -> None:
-        pass
-
-    # def test
+        os.unlink(os.path.join(self._base_folder, INDEX_NAME))
+        self._write_random_file(INDEX_NAME, 128)
+        indexer = Indexer(self._base_folder)
+        self.assertFalse(os.path.exists(indexer.index_path))
+        self.assertEqual(0, indexer.index_count)
 
 
 if __name__ == "__main__":

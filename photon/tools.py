@@ -6,14 +6,23 @@ from typing import ContextManager
 
 from tqdm import tqdm
 
+from photon.config import Config
+
 
 @contextmanager
 def create_progress_bar(description, total) -> ContextManager:
-    progress_bar = tqdm(
-        desc=description, total=total, leave=False, unit="file", colour="green"
-    )
-    yield lambda: progress_bar.update()
-    progress_bar.close()
+    if Config.silent:
+
+        def empty_function() -> None:
+            pass
+
+        yield empty_function
+    else:
+        progress_bar = tqdm(
+            desc=description, total=total, leave=False, unit="file", colour="green"
+        )
+        yield lambda: progress_bar.update()
+        progress_bar.close()
 
 
 @contextmanager
@@ -67,11 +76,12 @@ def write_ctime(filepath, timestamp):
         raise WinError(get_last_error())
 
 
-def format_file_size(size_bytes):
+def format_file_size(size_bytes: int) -> str:
     if size_bytes == 0:
-        return "0B"
-    size_name = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+        return "0 B"
+
+    size_names = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
     i = int(math.floor(math.log(size_bytes, 1024)))
     p = math.pow(1024, i)
     s = round(size_bytes / p, 2)
-    return "%s %s" % (s, size_name[i])
+    return f"{s} {size_names[i]}"

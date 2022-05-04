@@ -5,9 +5,13 @@ from typing import Optional
 
 def build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="ikuzo",
+        prog="iku",
         description="Fast and resumeable device-to-PC file synchronization tool.",
     )
+    # subparsers = parser.add_subparsers(help="sub-command help")
+    # parser_a = subparsers.add_parser("sync", help="a help")
+    # parser_a.add_argument("folder", type=int, help="bar help")
+
     group = parser.add_mutually_exclusive_group()
     group2 = parser.add_argument_group()
     group.add_argument(
@@ -50,8 +54,8 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="The folder destination to synchronize the files to.",
     )
     group2.add_argument(
-        "-k",
-        "--non-destructive",
+        "-d",
+        "--destructive",
         help="The folder destination to synchronize the files to.",
     )
 

@@ -8,13 +8,8 @@ from typing import ContextManager, Dict, Iterator, List
 import win32api
 import win32con
 
-from photon.constants import (
-    BUFFER_SIZE,
-    DIFF_ADDED,
-    DIFF_MODIFIED,
-    DIFF_REMOVED,
-    INDEX_NAME,
-)
+from photon.constants import (BACKUP_FILE_EXTENSION, BUFFER_SIZE, DIFF_ADDED,
+                              DIFF_MODIFIED, DIFF_REMOVED, INDEX_NAME)
 from photon.exceptions import NotManagedByIndexException
 from photon.tools import delay_keyboard_interrupt
 from photon.types import IndexRow, StagedIndexData
@@ -46,7 +41,7 @@ class Indexer:
                         self._index[path] = IndexRow(
                             file_hash, float(last_modified), int(size)
                         )
-            except csv.Error:
+            except (csv.Error, UnicodeDecodeError):
                 self._index = {}
                 os.unlink(self._index_path)
 
@@ -127,7 +122,7 @@ class Indexer:
             relating to the relative path would be staged.
         """
         with delay_keyboard_interrupt():
-            backup_path = f"{path}.backup"
+            backup_path = f"{path}{BACKUP_FILE_EXTENSION}"
             self._staged_index_data = StagedIndexData(
                 path, relative_path, backup_path, self._index.get(relative_path)
             )
@@ -245,10 +240,15 @@ class Indexer:
         size: int
             The size of the file in bytes.
         """
+        path = os.path.join(self._base_folder, relative_path)
+
+        if not os.path.isfile(path):
+            raise FileNotFoundError()
+
         self._set_index(
             relative_path,
             IndexRow(
-                self._hash_file(os.path.join(self._base_folder, relative_path)),
+                self._hash_file(path),
                 last_modified,
                 size,
             ),
@@ -256,19 +256,20 @@ class Indexer:
 
     def commit(self) -> None:
         """
-        Writes the in-memory index to the index file.
+        Writes the in-memory index to the index file. Cannot be keyboard interrupted.
         """
-        if all(len(value) == 0 for value in self._diff_report.values()):
-            return
+        with delay_keyboard_interrupt():
+            if all(len(value) == 0 for value in self._diff_report.values()):
+                return
 
-        self._diff_report = {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: []}
-        if os.path.isfile(self._index_path):
-            os.unlink(self._index_path)
-        with open(self._index_path, "w", newline="") as file:
-            writer = csv.writer(file)
-            for path, index_row in self._index.items():
-                writer.writerow([path, *index_row])
-        win32api.SetFileAttributes(self._index_path, win32con.FILE_ATTRIBUTE_HIDDEN)
+            self._diff_report = {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: []}
+            if os.path.isfile(self._index_path):
+                os.unlink(self._index_path)
+            with open(self._index_path, "w", newline="") as file:
+                writer = csv.writer(file)
+                for path, index_row in self._index.items():
+                    writer.writerow([path, *index_row])
+            win32api.SetFileAttributes(self._index_path, win32con.FILE_ATTRIBUTE_HIDDEN)
 
     def match(self, relative_path: str, last_modified: float, size: int) -> bool:
         """
