@@ -8,7 +8,12 @@ from typing import Dict, Iterator, List
 from unittest import TestCase, main
 
 from iku.constants import (
-    BACKUP_FILE_EXTENSION, DIFF_ADDED, DIFF_MODIFIED, DIFF_REMOVED, INDEX_NAME)
+    BACKUP_FILE_EXTENSION,
+    DIFF_ADDED,
+    DIFF_MODIFIED,
+    DIFF_REMOVED,
+    INDEX_NAME,
+)
 from iku.exceptions import NotManagedByIndexException
 from iku.indexer import Indexer
 from iku.tests.tools import SequentialTestLoader

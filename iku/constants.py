@@ -3,7 +3,7 @@ DCIM_NAME = "DCIM"
 INTERNAL_STORAGE_NAME = "Internal Storage"
 
 INDEX_NAME = "index.csv"
-BACKUP_FILE_EXTENSION = ".backup"
+BACKUP_FILE_EXTENSION = ".iku.backup"
 
 DIFF_ADDED = "+"
 DIFF_MODIFIED = "~"
@@ -16,5 +16,7 @@ CONSOLE_END_COLOR = "\033[0m"
 
 STEP_ONE_TEXT = "Indexing (step 1/2)"
 STEP_TWO_TEXT = "Synchronizing (step 2/2)"
+
+DEVICE_IPHONE = "iPhone"
 
 BUFFER_SIZE = 4194304

@@ -42,7 +42,7 @@ def _write_to_target(target_path: str, file: DeviceFile, indexer: Indexer) -> bo
 
 
 def _synchronize_files(
-    iphone_device: iPhoneDriver,
+    driver: iPhoneDriver,
     base_folder: str,
     indexer: Indexer,
     on_progress=None,
@@ -56,7 +56,7 @@ def _synchronize_files(
     size_skipped = 0
 
     try:
-        for file in iphone_device.list_files():
+        for file in driver.list_files():
             all_files.add(file.relative_path)
             total_size += file.size
 

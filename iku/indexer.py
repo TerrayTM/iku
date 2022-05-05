@@ -3,13 +3,19 @@ import hashlib
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import ContextManager, Dict, Iterator, List
+from typing import Callable, ContextManager, Dict, Iterator, List
 
 import win32api
 import win32con
 
-from iku.constants import (BACKUP_FILE_EXTENSION, BUFFER_SIZE, DIFF_ADDED,
-                              DIFF_MODIFIED, DIFF_REMOVED, INDEX_NAME)
+from iku.constants import (
+    BACKUP_FILE_EXTENSION,
+    BUFFER_SIZE,
+    DIFF_ADDED,
+    DIFF_MODIFIED,
+    DIFF_REMOVED,
+    INDEX_NAME,
+)
 from iku.exceptions import NotManagedByIndexException
 from iku.tools import delay_keyboard_interrupt
 from iku.types import IndexRow, StagedIndexData
@@ -202,7 +208,16 @@ class Indexer:
 
         return self._index[relative_path]
 
-    def synchronize(self, on_progress=None) -> None:
+    def synchronize(self, on_progress: Callable[[], None] = None) -> None:
+        """
+        Synchronizes the in-memory index with what is actually present on the file
+        system. Will also update the index diff report accordingly.
+
+        Parameters
+        ----------
+        on_progress : Callable[[], None]
+            Event callback for reporting when progress is made.
+        """
         keys = set()
 
         for relative_path in self.get_managed_relative_paths():

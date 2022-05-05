@@ -1,10 +1,9 @@
 import time
-
-from click import prompt
 from tabulate import tabulate
 
 from iku.config import Config
-from iku.console import format_cyan, format_green, format_red
+from iku.console import format_cyan, format_green, format_red, printMessage
+from iku.info import IKU_INFO
 from iku.core import synchronize_to_folder
 from iku.driver import bind_iphone_drivers
 from iku.parser import parse_args
@@ -24,42 +23,58 @@ def main() -> int:
     if args is None:
         return 1
 
-    Config.silent = args.silent
-    Config.destructive = args.destructive
-
     if args.show_version:
-        print(__version__)
+        printMessage(__version__)
+        return 0
+
+    if args.show_info:
+        printMessage(IKU_INFO)
         return 0
 
     drivers = bind_iphone_drivers()
 
-    if len(drivers) == 0:
-        print("No external storage detected")
+    if args.command == "discover":
+        table = tabulate(
+            [[driver.name, driver.type] for driver in drivers],
+            headers=["Name", "Type"],
+            tablefmt="pretty",
+        )
+        printMessage(table)
         return 0
 
-    driver = drivers[0]
+    Config.silent = args.silent
+    Config.destructive = args.destructive
+
+    if len(drivers) == 0:
+        printMessage("No devices were detected on computer.")
+        return 0
+
+    selected_driver = drivers[0]
     if len(drivers) > 1:
-        print("Found the following drivers:")
-        for index, driver in enumerate(drivers):
-            print(f"    {index}) {driver.name}")
-        selected = None
-        while selected != "q":
-            selected = prompt(f"Which one to use? (Enter 0-{len(drivers)}, q to quit)")
-            if selected.isnumeric():
-                index = int(selected)
-                if index >= 0 and index < len(drivers):
-                    driver = drivers[index]
-                    break
+        if args.device_name is None:
+            printMessage("Found multiple devices:")
+            for driver in drivers:
+                printMessage(f"- {driver.name}")
+            printMessage(
+                "Please specify which device to sync from using --device-name argument."
+            )
+            return 1
+
+        for driver in drivers:
+            if driver.name == args.device_name:
+                selected_driver = driver
         else:
-            return 0
+            printMessage(f'Device with name "{args.device_name}" is not found.')
+            printMessage(f"Please choose one from the following list of device names:")
+            for driver in drivers:
+                printMessage(f"- {driver.name}")
+            return 1
 
     rc = 0
     start_time = time.time()
 
     try:
-        result = synchronize_to_folder(driver, args.folder)
-
-        table = []
+        result = synchronize_to_folder(selected_driver, args.folder)
         table = tabulate(
             [
                 ["Files Analyzed", format_cyan(result.files_analyzed)],
@@ -81,15 +96,16 @@ def main() -> int:
             tablefmt="pretty",
         )
         table_width = len(table.split("\n")[0])
-        print(f"+{'-' * (table_width - 2)}+")
-        print(f"| Summary{' ' * (table_width - 10)}|")
-        print(table)
+
+        printMessage(f"+{'-' * (table_width - 2)}+")
+        printMessage(f"| Summary{' ' * (table_width - 10)}|")
+        printMessage(table)
     except KeyboardInterrupt:
         rc = 1
 
     total_seconds = round(time.time() - start_time, 2)
-    status = format_green("[OK]") if not rc else format_red("[INTERRUPT]")
-    print(f"{status} Elapsed time: {format_cyan(f'{total_seconds}s')}")
+    status = format_green("[OK]") if not rc else format_red("[INTERRUPTED]")
+    printMessage(f"{status} Elapsed time: {format_cyan(f'{total_seconds}s')}")
 
     return rc
 
