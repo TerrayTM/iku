@@ -67,6 +67,11 @@ def _validate_args(args) -> bool:
         printMessage("Need to specify an action.")
         return False
 
+    if args.command:
+        if args.show_version or args.show_info:
+            printMessage("Cannot show version/info while executing an action.")
+            return False
+
     if args.command == "sync":
         if not os.path.isdir(args.folder):
             printMessage("An invalid directory is given.")

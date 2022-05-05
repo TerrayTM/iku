@@ -1,14 +1,15 @@
 import hashlib
 import os
 from pathlib import Path
+from typing import Callable, Optional
 
 from iku.config import Config
 from iku.constants import STEP_ONE_TEXT, STEP_TWO_TEXT
 from iku.driver import iPhoneDriver
-from iku.exceptions import DeviceFileReadException
+from iku.exceptions import DeviceFileReadException, KeyboardInterruptWithDataException
 from iku.file import DeviceFile
 from iku.indexer import Indexer
-from iku.tools import create_progress_bar, with_retry, write_ctime
+from iku.tools import create_progress_bar, write_ctime
 from iku.types import SynchronizationDetails, SynchronizationResult
 
 
@@ -45,31 +46,33 @@ def _synchronize_files(
     driver: iPhoneDriver,
     base_folder: str,
     indexer: Indexer,
-    on_progress=None,
+    on_progress: Optional[Callable[[], None]] = None,
 ) -> SynchronizationResult:
     all_files = set()
     files_written = 0
     files_skipped = 0
-    files_deleted = 0
-    total_size = 0
+    size_discovered = 0
     size_written = 0
     size_skipped = 0
 
     try:
         for file in driver.list_files():
             all_files.add(file.relative_path)
-            total_size += file.size
+            size_discovered += file.size
+            import time
 
+            time.sleep(10)
             if not indexer.match(file.relative_path, file.last_modified, file.size):
                 target_path = os.path.join(base_folder, file.relative_path)
                 Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
 
-                if not with_retry(_write_to_target, args=(target_path, file, indexer)):
+                if not any(
+                    _write_to_target(target_path, file, indexer) for _ in range(3)
+                ):
                     return SynchronizationDetails(
                         files_written,
                         files_skipped,
-                        files_deleted,
-                        total_size,
+                        size_discovered,
                         size_written,
                         size_skipped,
                         target_path,
@@ -83,12 +86,20 @@ def _synchronize_files(
 
             on_progress() if on_progress is not None else None
     except KeyboardInterrupt:
-        pass
+        raise KeyboardInterruptWithDataException(
+            SynchronizationDetails(
+                files_written,
+                files_skipped,
+                size_discovered,
+                size_written,
+                size_skipped,
+                None,
+            )
+        )
 
     if Config.destructive:
         for file in set(indexer.get_managed_relative_paths()) - all_files:
             indexer.destroy(file)
-            files_deleted += 1
 
         for dirpath, dirs, files in os.walk(base_folder):
             if not dirs and not files:
@@ -97,8 +108,7 @@ def _synchronize_files(
     return SynchronizationDetails(
         files_written,
         files_skipped,
-        files_deleted,
-        total_size,
+        size_discovered,
         size_written,
         size_skipped,
         None,
@@ -109,22 +119,29 @@ def synchronize_to_folder(
     driver: iPhoneDriver, base_folder: str
 ) -> SynchronizationResult:
     indexer = Indexer(base_folder)
-    managed_files_count = indexer.count_managed_files()
-    files_analyzed = managed_files_count
+    total_files = driver.count_files()
 
     try:
-        with create_progress_bar(STEP_ONE_TEXT, managed_files_count) as on_progress:
-            indexer.synchronize(on_progress)
-    except KeyboardInterrupt:
+        with create_progress_bar(
+            STEP_ONE_TEXT, indexer.count_managed_files()
+        ) as on_progress:
+            files_indexed = indexer.synchronize(on_progress)
+    except KeyboardInterruptWithDataException as exception:
+        result = SynchronizationResult(
+            exception.data,
+            total_files,
+            SynchronizationDetails(0, 0, 0, 0, 0, None),
+            indexer.diff_report,
+            Indexer.empty_diff(),
+        )
+
         indexer.commit()
-        raise
+        raise KeyboardInterruptWithDataException(result)
 
     index_diff_report = indexer.diff_report
     indexer.commit()
 
     try:
-        total_files = driver.count_files()
-        files_analyzed += total_files
         with create_progress_bar(STEP_TWO_TEXT, total_files) as on_progress:
             details = _synchronize_files(
                 driver,
@@ -132,16 +149,24 @@ def synchronize_to_folder(
                 indexer,
                 on_progress,
             )
-    except KeyboardInterrupt:
+    except KeyboardInterruptWithDataException as exception:
+        result = SynchronizationResult(
+            files_indexed,
+            total_files,
+            exception.data,
+            index_diff_report,
+            indexer.diff_report,
+        )
+
         indexer.commit()
-        raise
+        raise KeyboardInterruptWithDataException(result)
 
     sync_diff_report = indexer.diff_report
     indexer.commit()
 
     return SynchronizationResult(
-        details.current_relative_path is None,
-        files_analyzed,
+        files_indexed,
+        total_files,
         details,
         index_diff_report,
         sync_diff_report,

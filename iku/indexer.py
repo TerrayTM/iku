@@ -3,7 +3,7 @@ import hashlib
 import os
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Callable, ContextManager, Dict, Iterator, List
+from typing import Callable, ContextManager, Dict, Iterator, List, Optional
 
 import win32api
 import win32con
@@ -16,7 +16,10 @@ from iku.constants import (
     DIFF_REMOVED,
     INDEX_NAME,
 )
-from iku.exceptions import NotManagedByIndexException
+from iku.exceptions import (
+    KeyboardInterruptWithDataException,
+    NotManagedByIndexException,
+)
 from iku.tools import delay_keyboard_interrupt
 from iku.types import IndexRow, StagedIndexData
 
@@ -37,7 +40,7 @@ class Indexer:
         self._staged_index_data = None
         self._base_folder = base_folder
         self._index_path = os.path.join(base_folder, INDEX_NAME)
-        self._diff_report = {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: []}
+        self._diff_report = self.empty_diff()
         if os.path.exists(self._index_path):
             try:
                 with open(self._index_path, newline="") as file:
@@ -105,6 +108,10 @@ class Indexer:
                     break
                 file_hash.update(data)
         return file_hash.hexdigest()
+
+    @staticmethod
+    def empty_diff() -> Dict[str, List[str]]:
+        return {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: []}
 
     @contextmanager
     def stage(self, path: str, relative_path: str) -> ContextManager:
@@ -208,36 +215,48 @@ class Indexer:
 
         return self._index[relative_path]
 
-    def synchronize(self, on_progress: Callable[[], None] = None) -> None:
+    def synchronize(self, on_progress: Optional[Callable[[], None]] = None) -> int:
         """
         Synchronizes the in-memory index with what is actually present on the file
         system. Will also update the index diff report accordingly.
 
         Parameters
         ----------
-        on_progress : Callable[[], None]
+        on_progress : Optional[Callable[[], None]]
             Event callback for reporting when progress is made.
+
+        Returns
+        -------
+        result : int
+            Number of files indexed.
         """
         keys = set()
+        files_indexed = 0
 
-        for relative_path in self.get_managed_relative_paths():
-            with delay_keyboard_interrupt():
-                keys.add(relative_path)
+        try:
+            for relative_path in self.get_managed_relative_paths():
+                with delay_keyboard_interrupt():
+                    keys.add(relative_path)
 
-                file_path = os.path.join(self._base_folder, relative_path)
-                last_modified = os.path.getmtime(file_path)
-                size = os.path.getsize(file_path)
+                    file_path = os.path.join(self._base_folder, relative_path)
+                    last_modified = os.path.getmtime(file_path)
+                    size = os.path.getsize(file_path)
 
-                if not self.match(relative_path, last_modified, size):
-                    file_hash = self._hash_file(file_path)
-                    self._set_index(
-                        relative_path, IndexRow(file_hash, last_modified, size)
-                    )
+                    if not self.match(relative_path, last_modified, size):
+                        file_hash = self._hash_file(file_path)
+                        self._set_index(
+                            relative_path, IndexRow(file_hash, last_modified, size)
+                        )
 
-                on_progress() if on_progress is not None else None
+                    on_progress() if on_progress is not None else None
+                    files_indexed += 1
+        except KeyboardInterrupt:
+            raise KeyboardInterruptWithDataException(files_indexed)
 
         for removed_key in set(self._index.keys()) - keys:
             self._pop_index(removed_key)
+
+        return files_indexed
 
     def update(self, relative_path: str, last_modified: float, size: int) -> None:
         """
@@ -277,7 +296,7 @@ class Indexer:
             if all(len(value) == 0 for value in self._diff_report.values()):
                 return
 
-            self._diff_report = {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: []}
+            self._diff_report = self.empty_diff()
             if os.path.isfile(self._index_path):
                 os.unlink(self._index_path)
             with open(self._index_path, "w", newline="") as file:
@@ -393,8 +412,15 @@ class Indexer:
         return len(list(self.get_managed_relative_paths()))
 
     @property
-    def staged_index_data(self) -> StagedIndexData:
-        """ """
+    def staged_index_data(self) -> Optional[StagedIndexData]:
+        """
+        Gets the staged index data if there is one.
+
+        Returns
+        -------
+        result : Optional[StagedIndexData]
+            The staged index data if there is one.
+        """
         return self._staged_index_data
 
     @property

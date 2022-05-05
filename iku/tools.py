@@ -21,8 +21,11 @@ def create_progress_bar(description, total) -> ContextManager:
         progress_bar = tqdm(
             desc=description, total=total, leave=False, unit="file", colour="green"
         )
-        yield lambda: progress_bar.update()
-        progress_bar.close()
+
+        try:
+            yield lambda: progress_bar.update()
+        finally:
+            progress_bar.close()
 
 
 @contextmanager
@@ -48,15 +51,6 @@ def print_diff(diff) -> None:
         if len(entries) > 0:
             for entry in entries:
                 print(f"{diff_type}{entry}")
-
-
-def with_retry(callable, retries=3, args=()) -> bool:
-    for _ in range(retries):
-        if callable(*args):
-            break
-    else:
-        return False
-    return True
 
 
 def write_ctime(filepath, timestamp):
