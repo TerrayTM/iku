@@ -12,14 +12,10 @@ from iku.config import Config
 @contextmanager
 def create_progress_bar(description, total) -> ContextManager:
     if Config.silent:
-
-        def empty_function() -> None:
-            pass
-
-        yield empty_function
+        yield lambda: None
     else:
         progress_bar = tqdm(
-            desc=description, total=total, leave=False, unit="file", colour="green"
+            desc=description, total=total, leave=False, unit="file"
         )
 
         try:

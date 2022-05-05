@@ -1,6 +1,7 @@
 import csv
 import hashlib
 import os
+import gzip
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, ContextManager, Dict, Iterator, List, Optional
@@ -43,14 +44,14 @@ class Indexer:
         self._diff_report = self.empty_diff()
         if os.path.exists(self._index_path):
             try:
-                with open(self._index_path, newline="") as file:
+                with gzip.open(self._index_path, "rt", newline="") as file:
                     reader = csv.reader(file)
                     for index_row in reader:
                         path, file_hash, last_modified, size = index_row
                         self._index[path] = IndexRow(
                             file_hash, float(last_modified), int(size)
                         )
-            except (csv.Error, UnicodeDecodeError):
+            except (csv.Error, UnicodeDecodeError, OSError, EOFError):
                 self._index = {}
                 os.unlink(self._index_path)
 
@@ -297,12 +298,16 @@ class Indexer:
                 return
 
             self._diff_report = self.empty_diff()
+            
             if os.path.isfile(self._index_path):
                 os.unlink(self._index_path)
-            with open(self._index_path, "w", newline="") as file:
+
+            with gzip.open(self._index_path, "wt", newline="") as file:
                 writer = csv.writer(file)
+                
                 for path, index_row in self._index.items():
                     writer.writerow([path, *index_row])
+            
             win32api.SetFileAttributes(self._index_path, win32con.FILE_ATTRIBUTE_HIDDEN)
 
     def match(self, relative_path: str, last_modified: float, size: int) -> bool:

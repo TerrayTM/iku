@@ -1,3 +1,4 @@
+import gzip
 import os
 import random
 import shutil
@@ -47,11 +48,6 @@ class TestIndexer(TestCase):
             with open(full_path, "wb") as file:
                 file.write(data)
         cls._base_folder = base_folder
-        cls._empty_diff_report = {
-            DIFF_ADDED: [],
-            DIFF_MODIFIED: [],
-            DIFF_REMOVED: [],
-        }
 
     @classmethod
     def tearDownClass(cls):
@@ -95,7 +91,7 @@ class TestIndexer(TestCase):
         self.assertEqual(len(self._index_map), indexer.index_count)
         indexer.commit()
         self.assertTrue(os.path.isfile(indexer.index_path))
-        with open(indexer.index_path) as file:
+        with gzip.open(indexer.index_path, "rt") as file:
             self.assertEqual(file.readlines(), self._generate_expected_index_raw())
 
     def test_load_index(self) -> None:
@@ -103,7 +99,7 @@ class TestIndexer(TestCase):
         self.assertEqual(12, indexer.index_count)
         for key, value in self._generate_expected_index_rows().items():
             self.assertEqual(value, indexer.get_index(key))
-        self.assertEqual(indexer.diff_report, self._empty_diff_report)
+        self.assertEqual(indexer.diff_report, Indexer.empty_diff())
 
     def test_destroy(self) -> None:
         indexer = Indexer(self._base_folder)
@@ -169,7 +165,7 @@ class TestIndexer(TestCase):
         self._index_map["one\\A"] = ("8b1d18c509ade3d34801b8b48b7feb9c", "512")
         self._index_map["two\\three\\A"] = ("752ec720f887b0fcdff8b56128ab11b1", "512")
         indexer.commit()
-        with open(indexer.index_path) as file:
+        with gzip.open(indexer.index_path, "rt") as file:
             self.assertEqual(file.readlines(), self._generate_expected_index_raw())
 
     def test_update(self) -> None:
@@ -316,7 +312,7 @@ class TestIndexer(TestCase):
                 },
             )
             indexer.revert()
-        self.assertEqual(indexer.diff_report, self._empty_diff_report)
+        self.assertEqual(indexer.diff_report, Indexer.empty_diff())
         self.assertFalse(os.path.isfile(expected_data.path))
         self.assertFalse(os.path.isfile(expected_data.backup_path))
         self.assertRaises(
@@ -332,7 +328,7 @@ class TestIndexer(TestCase):
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
-            self.assertEqual(indexer.diff_report, self._empty_diff_report)
+            self.assertEqual(indexer.diff_report, Indexer.empty_diff())
             self.assertFalse(os.path.isfile(expected_data.path))
             self.assertFalse(os.path.isfile(expected_data.backup_path))
             self.assertIsNone(indexer.staged_index_data)
@@ -343,7 +339,7 @@ class TestIndexer(TestCase):
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
-            self.assertEqual(indexer.diff_report, self._empty_diff_report)
+            self.assertEqual(indexer.diff_report, Indexer.empty_diff())
             self.assertFalse(os.path.isfile(expected_data.path))
             self.assertFalse(os.path.isfile(expected_data.backup_path))
             self.assertRaises(
@@ -379,7 +375,7 @@ class TestIndexer(TestCase):
                 },
             )
             indexer.revert()
-        self.assertEqual(indexer.diff_report, self._empty_diff_report)
+        self.assertEqual(indexer.diff_report, Indexer.empty_diff())
         self.assertTrue(os.path.isfile(expected_data.path))
         self.assertFalse(os.path.isfile(expected_data.backup_path))
         with open(test_path, "rb") as file:
@@ -395,7 +391,7 @@ class TestIndexer(TestCase):
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
-            self.assertEqual(indexer.diff_report, self._empty_diff_report)
+            self.assertEqual(indexer.diff_report, Indexer.empty_diff())
             self.assertTrue(os.path.isfile(expected_data.path))
             self.assertFalse(os.path.isfile(expected_data.backup_path))
             with open(test_path, "rb") as file:
@@ -408,7 +404,7 @@ class TestIndexer(TestCase):
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
-            self.assertEqual(indexer.diff_report, self._empty_diff_report)
+            self.assertEqual(indexer.diff_report, Indexer.empty_diff())
             self.assertTrue(os.path.isfile(expected_data.path))
             self.assertFalse(os.path.isfile(expected_data.backup_path))
             with open(test_path, "rb") as file:

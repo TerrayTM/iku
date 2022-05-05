@@ -1,3 +1,4 @@
 class Config:
-    destructive = False
-    silent = False
+    destructive: bool = False
+    silent: bool = False
+    delay: float = 0

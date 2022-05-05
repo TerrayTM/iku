@@ -1,5 +1,6 @@
 import hashlib
 import os
+import time
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -59,9 +60,7 @@ def _synchronize_files(
         for file in driver.list_files():
             all_files.add(file.relative_path)
             size_discovered += file.size
-            import time
 
-            time.sleep(10)
             if not indexer.match(file.relative_path, file.last_modified, file.size):
                 target_path = os.path.join(base_folder, file.relative_path)
                 Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
@@ -83,7 +82,8 @@ def _synchronize_files(
             else:
                 files_skipped += 1
                 size_skipped += file.size
-
+            
+            time.sleep(Config.delay)
             on_progress() if on_progress is not None else None
     except KeyboardInterrupt:
         raise KeyboardInterruptWithDataException(
