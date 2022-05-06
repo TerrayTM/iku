@@ -81,7 +81,7 @@ class TestIndexer(TestCase):
         self.assertEqual(0, indexer.index_count)
         indexer.synchronize()
         self.assertEqual(
-            indexer.diff_report,
+            indexer.diff,
             {
                 DIFF_ADDED: list(self._index_map.keys()),
                 DIFF_MODIFIED: [],
@@ -99,7 +99,7 @@ class TestIndexer(TestCase):
         self.assertEqual(12, indexer.index_count)
         for key, value in self._generate_expected_index_rows().items():
             self.assertEqual(value, indexer.get_index(key))
-        self.assertEqual(indexer.diff_report, Indexer.empty_diff())
+        self.assertEqual(indexer.diff, Indexer.empty_diff())
 
     def test_destroy(self) -> None:
         indexer = Indexer(self._base_folder)
@@ -110,7 +110,7 @@ class TestIndexer(TestCase):
         self.assertFalse(os.path.isfile(os.path.join(self._base_folder, "B")))
         self.assertFalse(os.path.isfile(os.path.join(self._base_folder, "C")))
         self.assertEqual(
-            indexer.diff_report,
+            indexer.diff,
             {
                 DIFF_ADDED: [],
                 DIFF_MODIFIED: [],
@@ -150,7 +150,7 @@ class TestIndexer(TestCase):
         self.assertEqual(
             {
                 diff_type: list(sorted(entries))
-                for diff_type, entries in indexer.diff_report.items()
+                for diff_type, entries in indexer.diff.items()
             },
             {
                 DIFF_ADDED: ["X"],
@@ -192,7 +192,7 @@ class TestIndexer(TestCase):
             IndexRow("0b6bf4795989136bcce920caf113347e", timestamp, 256),
         )
         self.assertEqual(
-            indexer.diff_report,
+            indexer.diff,
             {
                 DIFF_ADDED: ["value", "one\\value"],
                 DIFF_MODIFIED: ["one\\A"],
@@ -304,7 +304,7 @@ class TestIndexer(TestCase):
                 indexer.get_index(expected_data.relative_path).last_modified, 100.0
             )
             self.assertEqual(
-                indexer.diff_report,
+                indexer.diff,
                 {
                     DIFF_ADDED: ["ABC"],
                     DIFF_MODIFIED: [],
@@ -312,7 +312,7 @@ class TestIndexer(TestCase):
                 },
             )
             indexer.revert()
-        self.assertEqual(indexer.diff_report, Indexer.empty_diff())
+        self.assertEqual(indexer.diff, Indexer.empty_diff())
         self.assertFalse(os.path.isfile(expected_data.path))
         self.assertFalse(os.path.isfile(expected_data.backup_path))
         self.assertRaises(
@@ -328,7 +328,7 @@ class TestIndexer(TestCase):
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
-            self.assertEqual(indexer.diff_report, Indexer.empty_diff())
+            self.assertEqual(indexer.diff, Indexer.empty_diff())
             self.assertFalse(os.path.isfile(expected_data.path))
             self.assertFalse(os.path.isfile(expected_data.backup_path))
             self.assertIsNone(indexer.staged_index_data)
@@ -339,7 +339,7 @@ class TestIndexer(TestCase):
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
-            self.assertEqual(indexer.diff_report, Indexer.empty_diff())
+            self.assertEqual(indexer.diff, Indexer.empty_diff())
             self.assertFalse(os.path.isfile(expected_data.path))
             self.assertFalse(os.path.isfile(expected_data.backup_path))
             self.assertRaises(
@@ -367,7 +367,7 @@ class TestIndexer(TestCase):
                 indexer.get_index(expected_data.relative_path).last_modified, 200.0
             )
             self.assertEqual(
-                indexer.diff_report,
+                indexer.diff,
                 {
                     DIFF_ADDED: [],
                     DIFF_MODIFIED: ["one\\value"],
@@ -375,7 +375,7 @@ class TestIndexer(TestCase):
                 },
             )
             indexer.revert()
-        self.assertEqual(indexer.diff_report, Indexer.empty_diff())
+        self.assertEqual(indexer.diff, Indexer.empty_diff())
         self.assertTrue(os.path.isfile(expected_data.path))
         self.assertFalse(os.path.isfile(expected_data.backup_path))
         with open(test_path, "rb") as file:
@@ -391,7 +391,7 @@ class TestIndexer(TestCase):
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
-            self.assertEqual(indexer.diff_report, Indexer.empty_diff())
+            self.assertEqual(indexer.diff, Indexer.empty_diff())
             self.assertTrue(os.path.isfile(expected_data.path))
             self.assertFalse(os.path.isfile(expected_data.backup_path))
             with open(test_path, "rb") as file:
@@ -404,7 +404,7 @@ class TestIndexer(TestCase):
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
-            self.assertEqual(indexer.diff_report, Indexer.empty_diff())
+            self.assertEqual(indexer.diff, Indexer.empty_diff())
             self.assertTrue(os.path.isfile(expected_data.path))
             self.assertFalse(os.path.isfile(expected_data.backup_path))
             with open(test_path, "rb") as file:

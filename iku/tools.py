@@ -18,7 +18,7 @@ def create_progress_bar(description, total) -> ContextManager:
         progress_bar = tqdm(desc=description, total=total, leave=False, unit="file")
 
         try:
-            yield lambda: progress_bar.update()
+            yield lambda: progress_bar.update() or progress_bar.refresh()
         finally:
             progress_bar.close()
 

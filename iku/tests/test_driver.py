@@ -141,5 +141,6 @@ class TestDriver(TestCase):
             ["A\\Picture"], list(file.relative_path for file in drivers[0].list_files())
         )
 
+
 if __name__ == "__main__":
     main(testLoader=SequentialTestLoader(), failfast=True)

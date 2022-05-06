@@ -51,17 +51,18 @@ def _synchronize_files(
     driver: iPhoneDriver,
     base_folder: str,
     indexer: Indexer,
+    total_files: int,
     on_progress: Optional[Callable[[], None]] = None,
 ) -> SynchronizationResult:
     all_files = set()
-    files_written = 0
+    files_copied = 0
     files_skipped = 0
     size_discovered = 0
-    size_written = 0
+    size_copied = 0
     size_skipped = 0
 
     try:
-        for file in driver.list_files():
+        for index, file in enumerate(driver.list_files()):
             all_files.add(file.relative_path)
             size_discovered += file.size
 
@@ -73,29 +74,33 @@ def _synchronize_files(
                     _write_to_target(target_path, file, indexer) for _ in range(3)
                 ):
                     return SynchronizationDetails(
-                        files_written,
+                        files_copied,
                         files_skipped,
                         size_discovered,
-                        size_written,
+                        size_copied,
                         size_skipped,
                         target_path,
                     )  # should be full path
 
-                files_written += 1
-                size_written += file.size
+
+                files_copied += 1
+                size_copied += file.size
             else:
                 files_skipped += 1
                 size_skipped += file.size
 
-            time.sleep(Config.delay)
             on_progress() if on_progress is not None else None
+
+            if index + 1 < total_files:
+                time.sleep(Config.delay)
+            
     except KeyboardInterrupt:
         raise KeyboardInterruptWithDataException(
             SynchronizationDetails(
-                files_written,
+                files_copied,
                 files_skipped,
                 size_discovered,
-                size_written,
+                size_copied,
                 size_skipped,
                 None,
             )
@@ -110,10 +115,10 @@ def _synchronize_files(
                 os.rmdir(dirpath)
 
     return SynchronizationDetails(
-        files_written,
+        files_copied,
         files_skipped,
         size_discovered,
-        size_written,
+        size_copied,
         size_skipped,
         None,
     )
@@ -123,26 +128,28 @@ def synchronize_to_folder(
     driver: iPhoneDriver, base_folder: str
 ) -> SynchronizationResult:
     indexer = Indexer(base_folder)
+    total_indices = indexer.count_managed_files()
     total_files = driver.count_files()
 
     try:
         with create_progress_bar(
-            STEP_ONE_TEXT, indexer.count_managed_files()
+            STEP_ONE_TEXT, total_indices
         ) as on_progress:
             files_indexed = indexer.synchronize(on_progress)
     except KeyboardInterruptWithDataException as exception:
         result = SynchronizationResult(
             exception.data,
+            total_indices,
             total_files,
             SynchronizationDetails(0, 0, 0, 0, 0, None),
-            indexer.diff_report,
+            indexer.diff,
             Indexer.empty_diff(),
         )
 
         indexer.commit()
         raise KeyboardInterruptWithDataException(result)
 
-    index_diff_report = indexer.diff_report
+    index_diff = indexer.diff
     indexer.commit()
 
     try:
@@ -151,27 +158,30 @@ def synchronize_to_folder(
                 driver,
                 base_folder,
                 indexer,
+                total_files,
                 on_progress,
             )
     except KeyboardInterruptWithDataException as exception:
         result = SynchronizationResult(
             files_indexed,
+            total_indices,
             total_files,
             exception.data,
-            index_diff_report,
-            indexer.diff_report,
+            index_diff,
+            indexer.diff,
         )
 
         indexer.commit()
         raise KeyboardInterruptWithDataException(result)
 
-    sync_diff_report = indexer.diff_report
+    sync_diff = indexer.diff
     indexer.commit()
 
     return SynchronizationResult(
         files_indexed,
+        total_indices,
         total_files,
         details,
-        index_diff_report,
-        sync_diff_report,
+        index_diff,
+        sync_diff,
     )

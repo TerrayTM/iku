@@ -41,7 +41,7 @@ class Indexer:
         self._staged_index_data = None
         self._base_folder = base_folder
         self._index_path = os.path.join(base_folder, INDEX_NAME)
-        self._diff_report = self.empty_diff()
+        self._diff = self.empty_diff()
         if os.path.exists(self._index_path):
             try:
                 with gzip.open(self._index_path, "rt", newline="") as file:
@@ -69,9 +69,9 @@ class Indexer:
         """
         if key in self._index:
             if value != self._index[key]:
-                self._diff_report[DIFF_MODIFIED].append(key)
+                self._diff[DIFF_MODIFIED].append(key)
         else:
-            self._diff_report[DIFF_ADDED].append(key)
+            self._diff[DIFF_ADDED].append(key)
         self._index[key] = value
 
     def _pop_index(self, key: str) -> None:
@@ -84,7 +84,7 @@ class Indexer:
             The key of the index to pop.
         """
         self._index.pop(key)
-        self._diff_report[DIFF_REMOVED].append(key)
+        self._diff[DIFF_REMOVED].append(key)
 
     def _hash_file(self, path: str) -> str:
         """
@@ -179,10 +179,10 @@ class Indexer:
             if index_row is None:
                 if relative_path in self._index:
                     self._index.pop(relative_path)
-                    self._diff_report[DIFF_ADDED].remove(relative_path)
+                    self._diff[DIFF_ADDED].remove(relative_path)
             elif self._index[relative_path] != index_row:
                 self._index[relative_path] = index_row
-                self._diff_report[DIFF_MODIFIED].remove(relative_path)
+                self._diff[DIFF_MODIFIED].remove(relative_path)
 
             if os.path.exists(self._staged_index_data.path):
                 os.unlink(self._staged_index_data.path)
@@ -302,10 +302,10 @@ class Indexer:
         Writes the in-memory index to the index file. Cannot be keyboard interrupted.
         """
         with delay_keyboard_interrupt():
-            if all(len(value) == 0 for value in self._diff_report.values()):
+            if all(len(value) == 0 for value in self._diff.values()):
                 return
 
-            self._diff_report = self.empty_diff()
+            self._diff = self.empty_diff()
 
             if os.path.isfile(self._index_path):
                 os.unlink(self._index_path)
@@ -437,7 +437,7 @@ class Indexer:
         return self._staged_index_data
 
     @property
-    def diff_report(self) -> Dict[str, List[str]]:
+    def diff(self) -> Dict[str, List[str]]:
         """
         Gets the difference between current index that is in-memory versus the index
         that is written on file.
@@ -448,7 +448,7 @@ class Indexer:
             Dictionary of differences. For each entry, the key represents the difference
             type (add, modify, or remove) and the value is the relative paths.
         """
-        return self._diff_report
+        return self._diff
 
     @property
     def index_path(self) -> str:

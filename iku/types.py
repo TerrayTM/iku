@@ -41,17 +41,18 @@ class FileInfo(NamedTuple):
 
 
 class SynchronizationDetails(NamedTuple):
-    files_written: int
+    files_copied: int
     files_skipped: int
     size_discovered: int
-    size_written: int
+    size_copied: int
     size_skipped: int
     current_relative_path: Optional[str]
 
 
 class SynchronizationResult(NamedTuple):
     files_indexed: int
+    total_indices: int
     total_files: int
     details: SynchronizationDetails
-    index_diff_report: Dict[str, List[str]]
-    sync_diff_report: Dict[str, List[str]]
+    index_diff: Dict[str, List[str]]
+    sync_diff: Dict[str, List[str]]

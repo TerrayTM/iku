@@ -60,8 +60,17 @@ def _build_argument_parser() -> argparse.ArgumentParser:
     )
     sync_parser.add_argument(
         "--delay",
+        default=0,
         type=float,
         dest="delay",
+        help="Removes files and folders that does not exist in target device.",
+    )
+    sync_parser.add_argument(
+        "-r",
+        "--retries",
+        default=3,
+        type=int,
+        dest="retries",
         help="Removes files and folders that does not exist in target device.",
     )
     sync_parser.add_argument(
@@ -96,6 +105,10 @@ def _validate_args(args) -> bool:
             return False
 
         if args.delay < 0:
+            printMessage("nope")
+            return False
+
+        if args.retries < 1:
             printMessage("nope")
             return False
 
