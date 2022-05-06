@@ -1,7 +1,7 @@
 import csv
+import gzip
 import hashlib
 import os
-import gzip
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Callable, ContextManager, Dict, Iterator, List, Optional
@@ -9,9 +9,9 @@ from typing import Callable, ContextManager, Dict, Iterator, List, Optional
 import win32api
 import win32con
 
+from iku.config import Config
 from iku.constants import (
     BACKUP_FILE_EXTENSION,
-    BUFFER_SIZE,
     DIFF_ADDED,
     DIFF_MODIFIED,
     DIFF_REMOVED,
@@ -104,10 +104,13 @@ class Indexer:
 
         with open(path, "rb") as f:
             while True:
-                data = f.read(BUFFER_SIZE)
+                data = f.read(Config.buffer_size)
+
                 if not data:
                     break
+
                 file_hash.update(data)
+
         return file_hash.hexdigest()
 
     @staticmethod

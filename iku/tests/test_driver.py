@@ -5,11 +5,12 @@ import sys
 import tempfile
 from pathlib import Path
 from unittest import TestCase, main
+
+from win32com.shell import shell
+
 from iku.constants import DEVICE_IPHONE
 from iku.driver import bind_iphone_drivers
-from win32com.shell import shell
 from iku.tests.tools import SequentialTestLoader
-from pathlib import Path
 
 
 class TestDriver(TestCase):

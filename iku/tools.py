@@ -41,13 +41,6 @@ def delay_keyboard_interrupt() -> ContextManager:
         handler(*interrupt_signal)
 
 
-def print_diff(diff) -> None:
-    for diff_type, entries in diff.items():
-        if len(entries) > 0:
-            for entry in entries:
-                print(f"{diff_type}{entry}")
-
-
 def write_ctime(filepath, timestamp):
     timestamp = int((timestamp * 10000000) + 116444736000000000)
     ctime = wintypes.FILETIME(timestamp & 0xFFFFFFFF, timestamp >> 32)

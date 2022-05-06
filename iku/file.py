@@ -2,8 +2,8 @@ import os
 from typing import Iterator
 
 from pythoncom import IID_IStream
-from iku.config import Config
 
+from iku.config import Config
 from iku.exceptions import DeviceFileReadException
 from iku.types import PIDL, FileInfo, PyIShellFolder
 

@@ -2,11 +2,13 @@ import os
 import random
 import sys
 import tempfile
-from iku.config import Config
 from unittest import TestCase, main
+
+from win32com.shell import shell, shellcon
+
+from iku.config import Config
 from iku.exceptions import DeviceFileReadException
 from iku.file import DeviceFile
-from win32com.shell import shell, shellcon
 from iku.tests.tools import SequentialTestLoader
 
 

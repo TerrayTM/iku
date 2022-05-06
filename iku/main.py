@@ -1,6 +1,6 @@
 import argparse
-from email import header
 import time
+
 from tabulate import tabulate
 
 from iku.config import Config
@@ -13,13 +13,14 @@ from iku.constants import (
     RC_INTERRUPTED,
     RC_INVALID_ARGUMENT,
     RC_MISSING_INFO,
-    RC_NO_DEVICE,
+    RC_NO_DEVICE_FOUND,
+    RC_NO_DEVICE_WITH_NAME,
     RC_OK,
 )
-from iku.exceptions import KeyboardInterruptWithDataException
-from iku.info import IKU_INFO
 from iku.core import synchronize_to_folder
 from iku.driver import bind_iphone_drivers
+from iku.exceptions import KeyboardInterruptWithDataException
+from iku.info import IKU_INFO
 from iku.parser import parse_args
 from iku.tools import format_file_size
 from iku.types import SynchronizationResult
@@ -105,7 +106,7 @@ def _print_status(rc: int, start_time: float):
     elif rc == RC_FAILED:
         status = format_red("[FAILED]")
     else:
-        raise NotImplementedError()
+        return
 
     total_seconds = round(time.time() - start_time, 2)
     printMessage(f"{status} Elapsed time: {format_cyan(f'{total_seconds}s')}")
@@ -136,32 +137,33 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
 
     if len(drivers) == 0:
         printMessage("No devices were detected on computer.")
-        return RC_NO_DEVICE
+        return RC_NO_DEVICE_FOUND
 
     selected_driver = drivers[0]
-    if len(drivers) > 1:
-        if args.device_name is None:
-            printMessage("Found multiple devices:")
-            for driver in drivers:
-                printMessage(f"- {driver.name}")
 
-            printMessage(
-                "Please specify which device to sync from using --device-name argument."
-            )
+    if args.device_name is not None:
+        selected_driver = next(
+            (driver for driver in drivers if driver.name == args.device_name), None
+        )
 
-            return RC_MISSING_INFO
-
-        for driver in drivers:
-            if driver.name == args.device_name:
-                selected_driver = driver
-        else:
+        if selected_driver is None:
             printMessage(f'Device with name "{args.device_name}" is not found.')
             printMessage(f"Please choose one from the following list of device names:")
 
             for driver in drivers:
                 printMessage(f"- {driver.name}")
 
-            return RC_MISSING_INFO
+            return RC_NO_DEVICE_WITH_NAME
+    elif len(drivers) > 1:
+        printMessage("Found multiple devices:")
+        for driver in drivers:
+            printMessage(f"- {driver.name}")
+
+        printMessage(
+            "Please specify which device to sync from using --device-name argument."
+        )
+
+        return RC_MISSING_INFO
 
     try:
         rc = RC_OK

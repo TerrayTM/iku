@@ -2,7 +2,6 @@ import argparse
 import os
 from typing import Optional
 
-from numpy import require
 from iku.console import printMessage
 
 

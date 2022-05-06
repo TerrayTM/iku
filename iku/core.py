@@ -1,9 +1,10 @@
 import hashlib
 import os
 import time
+from ctypes import WinError
 from pathlib import Path
 from typing import Callable, Optional
-from ctypes import WinError
+
 from iku.config import Config
 from iku.constants import STEP_ONE_TEXT, STEP_TWO_TEXT
 from iku.driver import iPhoneDriver
