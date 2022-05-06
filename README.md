@@ -1,2 +1,2 @@
 # iku
-Fast and resumeable device-to-PC file synchronization tool.
+Fast and resumable device-to-PC file synchronization tool.

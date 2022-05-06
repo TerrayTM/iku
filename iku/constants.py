@@ -26,4 +26,7 @@ RC_FAILED = 5
 
 DEVICE_IPHONE = "iPhone"
 
+FILE_SIZES = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
+FILE_EMPTY = "0 B"
+
 BUFFER_SIZE = 4194304

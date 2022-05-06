@@ -10,7 +10,7 @@ from iku.constants import (
     PC_DISPLAY_NAMES,
 )
 from iku.file import DeviceFile
-from iku.types import DeviceInfo, PyIShellFolder
+from iku.types import PIDL, DeviceInfo, PyIShellFolder
 
 
 class iPhoneDriver:
@@ -41,53 +41,64 @@ class iPhoneDriver:
         return count
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self._name
 
     @property
-    def type(self):
+    def type(self) -> str:
         return DEVICE_IPHONE
 
 
 def _get_pc_folder() -> Optional[PyIShellFolder]:
     desktop = shell.SHGetDesktopFolder()
+
     for pidl in desktop.EnumObjects(0, shellcon.SHCONTF_FOLDERS):
         display_name = desktop.GetDisplayNameOf(pidl, shellcon.SHGDN_NORMAL)
+
         if display_name in PC_DISPLAY_NAMES:
             return desktop.BindToObject(pidl, None, shell.IID_IShellFolder)
+
     return None
 
 
-def _get_dcim_device_info(device_pidl, parent) -> Optional[DeviceInfo]:
-    device_name = parent.GetDisplayNameOf(device_pidl, shellcon.SHGDN_NORMAL)
-    folder = parent.BindToObject(device_pidl, None, shell.IID_IShellFolder)
+def _get_dcim_device_info(device_pidl: PIDL, parent: PyIShellFolder) -> Optional[DeviceInfo]:
     top_pidl = None
     top_dir_name = None
+    device_name = parent.GetDisplayNameOf(device_pidl, shellcon.SHGDN_NORMAL)
+    folder = parent.BindToObject(device_pidl, None, shell.IID_IShellFolder)
+
     try:
         for pidl in folder.EnumObjects(0, shellcon.SHCONTF_FOLDERS):
             top_dir_name = folder.GetDisplayNameOf(pidl, shellcon.SHGDN_NORMAL)
             top_pidl = pidl
             break
+
         if top_dir_name != INTERNAL_STORAGE_NAME:
             return None
     except com_error:
         return None
+
     internal = folder.BindToObject(top_pidl, None, shell.IID_IShellFolder)
     dcim_candidate = None
     dcim_pidl = None
+
     for pidl in internal.EnumObjects(0, shellcon.SHCONTF_FOLDERS):
         dcim_candidate = internal.GetDisplayNameOf(pidl, shellcon.SHGDN_NORMAL)
         dcim_pidl = pidl
         break
+
     if dcim_candidate != DCIM_NAME:
         return None
+
     return DeviceInfo(dcim_pidl, internal, device_name)
 
 
 def bind_iphone_drivers() -> List[iPhoneDriver]:
     pc_folder = _get_pc_folder()
+    
     if pc_folder is None:
         return []
+
     return [
         iPhoneDriver(info)
         for info in filter(

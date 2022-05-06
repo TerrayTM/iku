@@ -24,7 +24,7 @@ from iku.types import IndexRow, StagedIndexData
 class TestIndexer(TestCase):
     @classmethod
     def setUpClass(cls):
-        super(TestIndexer, cls).setUpClass()
+        super().setUpClass()
         cls._index_map = {
             "A": ("8a9a9852083a9023cb8bc343494ff572", "256"),
             "B": ("afc9f5872442d9a22f9a3dc30e7419a8", "256"),
@@ -51,7 +51,7 @@ class TestIndexer(TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        super(TestIndexer, cls).tearDownClass()
+        super().tearDownClass()
         shutil.rmtree(cls._base_folder)
 
     def _generate_expected_index(self) -> Iterator[str]:

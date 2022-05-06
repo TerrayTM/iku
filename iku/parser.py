@@ -9,7 +9,7 @@ from iku.console import printMessage
 def _build_argument_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="iku",
-        description="Fast and resumeable device-to-PC file synchronization tool.",
+        description="Fast and resumable device-to-PC file synchronization tool.",
     )
 
     exclusive_args = parser.add_mutually_exclusive_group()
@@ -58,6 +58,24 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         dest="destructive",
         help="Removes files and folders that does not exist in target device.",
     )
+    sync_parser.add_argument(
+        "--delay",
+        type=float,
+        dest="delay",
+        help="Removes files and folders that does not exist in target device.",
+    )
+    sync_parser.add_argument(
+        "-id",
+        "--export-index-diff",
+        dest="index_diff_path",
+        help="Writes the index diff to the given location.",
+    )
+    sync_parser.add_argument(
+        "-sd",
+        "--show-sync-diff",
+        dest="sync_diff_path",
+        help="Writes the sync diff to the given location.",
+    )
 
     return parser
 
@@ -75,6 +93,10 @@ def _validate_args(args) -> bool:
     if args.command == "sync":
         if not os.path.isdir(args.folder):
             printMessage("An invalid directory is given.")
+            return False
+
+        if args.delay < 0:
+            printMessage("nope")
             return False
 
         args.folder = os.path.abspath(args.folder)

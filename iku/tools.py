@@ -7,6 +7,7 @@ from typing import ContextManager
 from tqdm import tqdm
 
 from iku.config import Config
+from iku.constants import FILE_EMPTY, FILE_SIZES
 
 
 @contextmanager
@@ -14,9 +15,7 @@ def create_progress_bar(description, total) -> ContextManager:
     if Config.silent:
         yield lambda: None
     else:
-        progress_bar = tqdm(
-            desc=description, total=total, leave=False, unit="file"
-        )
+        progress_bar = tqdm(desc=description, total=total, leave=False, unit="file")
 
         try:
             yield lambda: progress_bar.update()
@@ -68,10 +67,9 @@ def write_ctime(filepath, timestamp):
 
 def format_file_size(size_bytes: int) -> str:
     if size_bytes == 0:
-        return "0 B"
+        return FILE_EMPTY
 
-    size_names = ("B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB")
-    i = int(math.floor(math.log(size_bytes, 1024)))
-    p = math.pow(1024, i)
-    s = round(size_bytes / p, 2)
-    return f"{s} {size_names[i]}"
+    index = int(math.floor(math.log(size_bytes, 1024)))
+    size = round(size_bytes / math.pow(1024, index), 2)
+
+    return f"{size} {FILE_SIZES[index]}"

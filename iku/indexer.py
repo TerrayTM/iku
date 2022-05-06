@@ -112,6 +112,14 @@ class Indexer:
 
     @staticmethod
     def empty_diff() -> Dict[str, List[str]]:
+        """
+        Creates a diff dictionary that represents no change.
+
+        Returns
+        -------
+        result : Dict[str, List[str]]
+            The empty diff dictionary.
+        """
         return {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: []}
 
     @contextmanager
@@ -298,16 +306,16 @@ class Indexer:
                 return
 
             self._diff_report = self.empty_diff()
-            
+
             if os.path.isfile(self._index_path):
                 os.unlink(self._index_path)
 
             with gzip.open(self._index_path, "wt", newline="") as file:
                 writer = csv.writer(file)
-                
+
                 for path, index_row in self._index.items():
                     writer.writerow([path, *index_row])
-            
+
             win32api.SetFileAttributes(self._index_path, win32con.FILE_ATTRIBUTE_HIDDEN)
 
     def match(self, relative_path: str, last_modified: float, size: int) -> bool:

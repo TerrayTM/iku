@@ -3,7 +3,7 @@ import os
 import time
 from pathlib import Path
 from typing import Callable, Optional
-
+from ctypes import WinError
 from iku.config import Config
 from iku.constants import STEP_ONE_TEXT, STEP_TWO_TEXT
 from iku.driver import iPhoneDriver
@@ -26,7 +26,11 @@ def _write_to_target(target_path: str, file: DeviceFile, indexer: Indexer) -> bo
                     target_file.write(data)
 
             os.utime(target_path, (file.last_accessed, file.last_modified))
-            write_ctime(target_path, file.created_time)
+
+            try:
+                write_ctime(target_path, file.created_time)
+            except WinError:
+                pass
 
             indexer.update(file.relative_path, file.last_modified, file.size)
 
@@ -82,7 +86,7 @@ def _synchronize_files(
             else:
                 files_skipped += 1
                 size_skipped += file.size
-            
+
             time.sleep(Config.delay)
             on_progress() if on_progress is not None else None
     except KeyboardInterrupt:
