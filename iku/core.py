@@ -71,7 +71,8 @@ def _synchronize_files(
                 Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
 
                 if not any(
-                    _write_to_target(target_path, file, indexer) for _ in range(3)
+                    _write_to_target(target_path, file, indexer)
+                    for _ in range(Config.retries)
                 ):
                     return SynchronizationDetails(
                         files_copied,
@@ -80,8 +81,7 @@ def _synchronize_files(
                         size_copied,
                         size_skipped,
                         target_path,
-                    )  # should be full path
-
+                    )
 
                 files_copied += 1
                 size_copied += file.size
@@ -93,7 +93,7 @@ def _synchronize_files(
 
             if index + 1 < total_files:
                 time.sleep(Config.delay)
-            
+
     except KeyboardInterrupt:
         raise KeyboardInterruptWithDataException(
             SynchronizationDetails(
@@ -132,9 +132,7 @@ def synchronize_to_folder(
     total_files = driver.count_files()
 
     try:
-        with create_progress_bar(
-            STEP_ONE_TEXT, total_indices
-        ) as on_progress:
+        with create_progress_bar(STEP_ONE_TEXT, total_indices) as on_progress:
             files_indexed = indexer.synchronize(on_progress)
     except KeyboardInterruptWithDataException as exception:
         result = SynchronizationResult(

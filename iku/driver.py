@@ -61,7 +61,9 @@ def _get_pc_folder() -> Optional[PyIShellFolder]:
     return None
 
 
-def _get_dcim_device_info(device_pidl: PIDL, parent: PyIShellFolder) -> Optional[DeviceInfo]:
+def _get_dcim_device_info(
+    device_pidl: PIDL, parent: PyIShellFolder
+) -> Optional[DeviceInfo]:
     top_pidl = None
     top_dir_name = None
     device_name = parent.GetDisplayNameOf(device_pidl, shellcon.SHGDN_NORMAL)
@@ -94,8 +96,17 @@ def _get_dcim_device_info(device_pidl: PIDL, parent: PyIShellFolder) -> Optional
 
 
 def bind_iphone_drivers() -> List[iPhoneDriver]:
+    """
+    Discovers and binds all iPhone drivers connected to the computer. An iPhone device
+    is characterized by its folder structure of iPhone/Internal Storage/DCIM/.
+
+    Returns
+    -------
+    result : List[iPhoneDriver]
+        All the iPhone devices as drivers.
+    """
     pc_folder = _get_pc_folder()
-    
+
     if pc_folder is None:
         return []
 

@@ -92,8 +92,8 @@ def _print_sync_result(result: SynchronizationResult, success: bool):
         )
     )
 
-    if details.current_relative_path is not None:
-        printMessage(f"Error copying file to {details.current_relative_path}")
+    if details.current_destination_path is not None:
+        printMessage(f"Error copying file to {details.current_destination_path}")
         printMessage("Try replugging in your device and running sync again,")
 
 
@@ -130,6 +130,7 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
     Config.destructive = args.destructive
     Config.delay = args.delay
     Config.retries = args.retries
+    Config.buffer_size = args.buffer_size
 
     drivers = bind_iphone_drivers()
 
@@ -143,7 +144,7 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
             printMessage("Found multiple devices:")
             for driver in drivers:
                 printMessage(f"- {driver.name}")
-            
+
             printMessage(
                 "Please specify which device to sync from using --device-name argument."
             )
@@ -156,12 +157,12 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
         else:
             printMessage(f'Device with name "{args.device_name}" is not found.')
             printMessage(f"Please choose one from the following list of device names:")
-            
+
             for driver in drivers:
                 printMessage(f"- {driver.name}")
-            
+
             return RC_MISSING_INFO
-    
+
     try:
         rc = RC_OK
         result = synchronize_to_folder(selected_driver, args.folder)
@@ -169,7 +170,7 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
         rc = RC_INTERRUPTED
         result = exception.data
 
-    if result.details.current_relative_path is not None:
+    if result.details.current_destination_path is not None:
         rc = RC_FAILED
 
     if args.index_diff_path is not None:

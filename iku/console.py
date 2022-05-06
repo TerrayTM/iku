@@ -14,6 +14,6 @@ def format_red(text: str) -> str:
     return f"{CONSOLE_RED}{text}{CONSOLE_END_COLOR}"
 
 
-def printMessage(text: str) -> None:
+def printMessage(*values: object) -> None:
     if not Config.silent:
-        print(text)
+        print(*values)

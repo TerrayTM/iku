@@ -46,7 +46,7 @@ class SynchronizationDetails(NamedTuple):
     size_discovered: int
     size_copied: int
     size_skipped: int
-    current_relative_path: Optional[str]
+    current_destination_path: Optional[str]
 
 
 class SynchronizationResult(NamedTuple):

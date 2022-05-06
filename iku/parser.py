@@ -74,6 +74,14 @@ def _build_argument_parser() -> argparse.ArgumentParser:
         help="Removes files and folders that does not exist in target device.",
     )
     sync_parser.add_argument(
+        "-bs",
+        "--buffer-size",
+        default=4194304,
+        type=int,
+        dest="buffer_size",
+        help="Removes files and folders that does not exist in target device.",
+    )
+    sync_parser.add_argument(
         "-id",
         "--export-index-diff",
         dest="index_diff_path",
@@ -109,6 +117,10 @@ def _validate_args(args) -> bool:
             return False
 
         if args.retries < 1:
+            printMessage("nope")
+            return False
+
+        if args.buffer_size < 1:
             printMessage("nope")
             return False
 

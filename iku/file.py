@@ -2,8 +2,8 @@ import os
 from typing import Iterator
 
 from pythoncom import IID_IStream
+from iku.config import Config
 
-from iku.constants import BUFFER_SIZE
 from iku.exceptions import DeviceFileReadException
 from iku.types import PIDL, FileInfo, PyIShellFolder
 
@@ -11,7 +11,7 @@ from iku.types import PIDL, FileInfo, PyIShellFolder
 class DeviceFile:
     def __init__(self, pidl: PIDL, parent: PyIShellFolder, parent_name: str) -> None:
         """
-        Reprents a file on a device and provides utilities for reading the file in
+        Represents a file on a device and provides utilities for reading the file in
         chunks.
 
         Parameters
@@ -45,7 +45,13 @@ class DeviceFile:
             An iterator of the file stream when read in bytes.
         """
         try:
-            yield self._stream.Read(BUFFER_SIZE)
+            while True:
+                chunk = self._stream.Read(Config.buffer_size)
+
+                if not chunk:
+                    break
+
+                yield chunk
         except:
             raise DeviceFileReadException()
 
