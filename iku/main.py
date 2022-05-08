@@ -4,7 +4,7 @@ import time
 from tabulate import tabulate
 
 from iku.config import Config
-from iku.console import format_cyan, format_green, format_red, printMessage
+from iku.console import format_cyan, format_green, format_red, output
 from iku.constants import (
     DIFF_ADDED,
     DIFF_MODIFIED,
@@ -68,10 +68,10 @@ def _print_sync_result(result: SynchronizationResult, success: bool):
     )
     table_width = len(table.split("\n")[0])
 
-    printMessage(f"+{'-' * (table_width - 2)}+")
-    printMessage(f"| Summary{' ' * (table_width - 10)}|")
-    printMessage(table)
-    printMessage(
+    output(f"+{'-' * (table_width - 2)}+")
+    output(f"| Summary{' ' * (table_width - 10)}|")
+    output(table)
+    output(
         tabulate(
             [
                 [
@@ -94,8 +94,8 @@ def _print_sync_result(result: SynchronizationResult, success: bool):
     )
 
     if details.current_destination_path is not None:
-        printMessage(f"Error copying file to {details.current_destination_path}")
-        printMessage("Try replugging in your device and running sync again,")
+        output(f"Error copying file to {details.current_destination_path}")
+        output("Try replugging in your device and running sync again,")
 
 
 def _print_status(rc: int, start_time: float):
@@ -109,13 +109,13 @@ def _print_status(rc: int, start_time: float):
         return
 
     total_seconds = round(time.time() - start_time, 2)
-    printMessage(f"{status} Elapsed time: {format_cyan(f'{total_seconds}s')}")
+    output(f"{status} Elapsed time: {format_cyan(f'{total_seconds}s')}")
 
 
 def _execute_discover_command(args: argparse.Namespace) -> int:
     drivers = bind_iphone_drivers()
 
-    printMessage(
+    output(
         tabulate(
             [[driver.name, driver.type] for driver in drivers],
             headers=["Name", "Type"],
@@ -136,7 +136,7 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
     drivers = bind_iphone_drivers()
 
     if len(drivers) == 0:
-        printMessage("No devices were detected on computer.")
+        output("No devices were detected on computer.")
         return RC_NO_DEVICE_FOUND
 
     selected_driver = drivers[0]
@@ -147,21 +147,19 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
         )
 
         if selected_driver is None:
-            printMessage(f'Device with name "{args.device_name}" is not found.')
-            printMessage(f"Please choose one from the following list of device names:")
+            output(f'Device with name "{args.device_name}" is not found.')
+            output(f"Please choose one from the following list of device names:")
 
             for driver in drivers:
-                printMessage(f"- {driver.name}")
+                output(f"- {driver.name}")
 
             return RC_NO_DEVICE_WITH_NAME
     elif len(drivers) > 1:
-        printMessage("Found multiple devices:")
+        output("Found multiple devices:")
         for driver in drivers:
-            printMessage(f"- {driver.name}")
+            output(f"- {driver.name}")
 
-        printMessage(
-            "Please specify which device to sync from using --device-name argument."
-        )
+        output("Please specify which device to sync from using --device-name argument.")
 
         return RC_MISSING_INFO
 
@@ -195,11 +193,11 @@ def main() -> int:
         return RC_INVALID_ARGUMENT
 
     if args.show_version:
-        printMessage(__version__)
+        output(__version__)
         return RC_OK
 
     if args.show_info:
-        printMessage(IKU_INFO)
+        output(IKU_INFO)
         return RC_OK
 
     rc = RC_OK

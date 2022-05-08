@@ -270,7 +270,7 @@ class Indexer:
 
         return files_indexed
 
-    def update(self, relative_path: str, last_modified: float, size: int) -> None:
+    def update(self, relative_path: str) -> None:
         """
         Updates the index for the relative path with the given properties. This method
         will also compute and store the MD5 hash of the file.
@@ -279,12 +279,6 @@ class Indexer:
         ----------
         relative_path : str
             The relative path for the index row you want to query.
-
-        last_modified: float
-            The timestamp of when the file was last modified.
-
-        size: int
-            The size of the file in bytes.
         """
         path = os.path.join(self._base_folder, relative_path)
 
@@ -295,8 +289,8 @@ class Indexer:
             relative_path,
             IndexRow(
                 self._hash_file(path),
-                last_modified,
-                size,
+                os.path.getmtime(path),
+                os.path.getsize(path),
             ),
         )
 
@@ -349,7 +343,13 @@ class Indexer:
             and self._index[relative_path].size == size
         )
 
-    def validate(self, relative_path: str, source_hash: str) -> bool:
+    def validate(
+        self,
+        relative_path: str,
+        source_hash: str,
+        source_last_modified: float,
+        source_size: int,
+    ) -> bool:
         """
         Compares the hash stored in the index with the source file hash.
 
@@ -368,7 +368,7 @@ class Indexer:
             does not exist in index.
         """
         return (
-            relative_path in self._index
+            self.match(relative_path, source_last_modified, source_size)
             and self._index[relative_path].file_hash == source_hash
         )
 

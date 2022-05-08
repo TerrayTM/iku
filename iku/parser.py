@@ -2,7 +2,7 @@ import argparse
 import os
 from typing import Optional
 
-from iku.console import printMessage
+from iku.console import output
 
 
 def _build_argument_parser() -> argparse.ArgumentParser:
@@ -98,29 +98,29 @@ def _build_argument_parser() -> argparse.ArgumentParser:
 
 def _validate_args(args) -> bool:
     if not args.command and not args.show_version and not args.show_info:
-        printMessage("Need to specify an action.")
+        output("Need to specify an action.")
         return False
 
     if args.command:
         if args.show_version or args.show_info:
-            printMessage("Cannot show version/info while executing an action.")
+            output("Cannot show version/info while executing an action.")
             return False
 
     if args.command == "sync":
         if not os.path.isdir(args.folder):
-            printMessage("An invalid directory is given.")
+            output("An invalid directory is given.")
             return False
 
         if args.delay < 0:
-            printMessage("nope")
+            output("nope")
             return False
 
         if args.retries < 1:
-            printMessage("nope")
+            output("nope")
             return False
 
         if args.buffer_size < 1:
-            printMessage("nope")
+            output("nope")
             return False
 
         args.folder = os.path.abspath(args.folder)
