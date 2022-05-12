@@ -3,7 +3,7 @@ DCIM_NAME = "DCIM"
 INTERNAL_STORAGE_NAME = "Internal Storage"
 
 INDEX_NAME = "index.csv"
-BACKUP_FILE_EXTENSION = ".iku.backup"
+BACKUP_FILE_EXTENSION = ".backup"
 
 DIFF_ADDED = "ADDED"
 DIFF_MODIFIED = "MODIFIED"
@@ -14,8 +14,8 @@ CONSOLE_GREEN = "\033[92m"
 CONSOLE_RED = "\033[91m"
 CONSOLE_END_COLOR = "\033[0m"
 
-STEP_ONE_TEXT = "Indexing (step 1/2)"
-STEP_TWO_TEXT = "Synchronizing (step 2/2)"
+STEP_ONE_TEXT = "Indexing (Step 1/2)"
+STEP_TWO_TEXT = "Synchronizing (Step 2/2)"
 
 RC_OK = 0
 RC_INVALID_ARGUMENT = 1

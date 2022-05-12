@@ -147,10 +147,15 @@ class Indexer:
             relating to the relative path would be staged.
         """
         with delay_keyboard_interrupt():
+            counter = 0
             backup_path = f"{path}{BACKUP_FILE_EXTENSION}"
             self._staged_index_data = StagedIndexData(
                 path, relative_path, backup_path, self._index.get(relative_path)
             )
+            #unit tested
+            while os.path.isfile(backup_path):
+                backup_path = f"{path}{counter}{BACKUP_FILE_EXTENSION}"
+                counter += 1
 
             if os.path.isfile(path):
                 os.rename(path, backup_path)
