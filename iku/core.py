@@ -8,7 +8,12 @@ from typing import Callable, Optional
 from iku.config import Config
 from iku.constants import STEP_ONE_TEXT, STEP_TWO_TEXT
 from iku.driver import iPhoneDriver
-from iku.exceptions import DeviceFileReadException, KeyboardInterruptWithDataException
+from iku.exceptions import (
+    DeviceFileReadException,
+    DeviceFileSeekException,
+    KeyboardInterruptWithDataException,
+)
+from iku.console import clear_last_output, output
 from iku.file import DeviceFile
 from iku.indexer import Indexer
 from iku.tools import create_progress_bar, write_ctime
@@ -31,21 +36,26 @@ def _write_to_target(target_path: str, file: DeviceFile, indexer: Indexer) -> bo
             try:
                 write_ctime(target_path, file.created_time)
             except WinError:
-                pass
+                pass  # check this
+            indexer.update(file.relative_path)
 
-            indexer.update(file.relative_path, file.last_modified, file.size)
-
-            if not indexer.validate(file.relative_path, source_hash.hexdigest()):
+            if not indexer.validate(
+                file.relative_path,
+                source_hash.hexdigest(),
+                file.last_modified,
+                file.size,
+            ):
                 indexer.revert()
-                return False
-    except DeviceFileReadException:
+                return False, True
+    except (DeviceFileReadException, DeviceFileSeekException):
         indexer.revert()
-        return False
+
+        return False, file.reopen()
     except KeyboardInterrupt:
         indexer.revert()
         raise
 
-    return True
+    return True, False
 
 
 def _synchronize_files(
@@ -68,13 +78,17 @@ def _synchronize_files(
             size_discovered += file.size
 
             if not indexer.match(file.relative_path, file.last_modified, file.size):
+                success = False
                 target_path = os.path.join(base_folder, file.relative_path)
                 Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
 
-                if not any(
-                    _write_to_target(target_path, file, indexer)
-                    for _ in range(Config.retries)
-                ):
+                for _ in range(Config.retries):
+                    success, should_retry = _write_to_target(target_path, file, indexer)
+
+                    if success or not should_retry:
+                        break
+
+                if not success:
                     return SynchronizationDetails(
                         files_copied,
                         files_skipped,
@@ -128,9 +142,17 @@ def _synchronize_files(
 def synchronize_to_folder(
     driver: iPhoneDriver, base_folder: str
 ) -> SynchronizationResult:
-    indexer = Indexer(base_folder)
-    total_indices = indexer.count_managed_files()
-    total_files = driver.count_files()
+    output("Enumerating objects...")
+
+    try:
+        indexer = Indexer(base_folder)
+        total_indices = indexer.count_managed_files()
+        total_files = driver.count_files()
+    except KeyboardInterrupt:
+        clear_last_output()
+        raise
+
+    clear_last_output()
 
     try:
         with create_progress_bar(STEP_ONE_TEXT, total_indices) as on_progress:

@@ -44,3 +44,11 @@ def output(*values: object) -> None:
     """
     if not Config.silent:
         print(*values)
+
+
+def clear_last_output() -> None:
+    """
+    Removes the last line of output to the console.
+    """
+    if not Config.silent:
+        print("\033[A\033[A")

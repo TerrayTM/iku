@@ -169,6 +169,8 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
     except KeyboardInterruptWithDataException as exception:
         rc = RC_INTERRUPTED
         result = exception.data
+    except KeyboardInterrupt:
+        return RC_INTERRUPTED
 
     if result.details.current_destination_path is not None:
         rc = RC_FAILED

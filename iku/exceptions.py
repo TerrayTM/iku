@@ -9,6 +9,10 @@ class DeviceFileReadException(Exception):
     pass
 
 
+class DeviceFileSeekException(Exception):
+    pass
+
+
 class KeyboardInterruptWithDataException(Exception):
     def __init__(self, data) -> None:
         super().__init__(None)

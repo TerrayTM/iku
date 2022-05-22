@@ -43,7 +43,7 @@ class Indexer:
         self._index_path = os.path.join(base_folder, INDEX_NAME)
         self._diff = self.empty_diff()
 
-        if os.path.exists(self._index_path):
+        if os.path.isfile(self._index_path):
             try:
                 with gzip.open(self._index_path, "rt", newline="") as file:
                     reader = csv.reader(file)
@@ -194,7 +194,7 @@ class Indexer:
                 self._index[relative_path] = index_row
                 self._diff[DIFF_MODIFIED].remove(relative_path)
 
-            if os.path.exists(self._staged_index_data.path):
+            if os.path.isfile(self._staged_index_data.path):
                 os.unlink(self._staged_index_data.path)
 
             if os.path.isfile(self._staged_index_data.backup_path):
