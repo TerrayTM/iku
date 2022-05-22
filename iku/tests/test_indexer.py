@@ -64,7 +64,7 @@ class TestIndexer(TestCase):
 
     def _generate_expected_index_raw(self) -> List[str]:
         return [
-            ",".join(str(entry) for entry in row) + "\n"
+            f"{','.join(str(entry) for entry in row)}\n"
             for row in self._generate_expected_index()
         ]
 
@@ -259,7 +259,7 @@ class TestIndexer(TestCase):
         self.assertIsNone(indexer.staged_index_data)
         with indexer.stage(expected_data.path, expected_data.relative_path):
             self.assertEqual(expected_data, indexer.staged_index_data)
-            self._write_random_file(expected_data.path, 512)
+            self._write_random_file(expected_data.relative_path, 512)
         self.assertIsNone(indexer.staged_index_data)
         self.assertTrue(os.path.isfile(expected_data.path))
         self.assertFalse(os.path.isfile(expected_data.backup_path))
@@ -302,6 +302,28 @@ class TestIndexer(TestCase):
         self.assertFalse(os.path.isfile(expected_data.path))
         os.rename(expected_data.backup_path, expected_data.path)
 
+    def test_stage_conflict(self) -> None:
+        indexer = Indexer(self._base_folder)
+        conflict_one_path = os.path.join(
+            self._base_folder, f"ABC{BACKUP_FILE_EXTENSION}"
+        )
+        conflict_two_path = os.path.join(
+            self._base_folder, f"ABC0{BACKUP_FILE_EXTENSION}"
+        )
+        self._write_random_file(f"ABC{BACKUP_FILE_EXTENSION}", 32)
+        self._write_random_file(f"ABC0{BACKUP_FILE_EXTENSION}", 32)
+        test_path = os.path.join(self._base_folder, "ABC")
+        self._write_random_file("ABC", 64)
+        expected_data = StagedIndexData(
+            test_path, "ABC", f"{test_path}1{BACKUP_FILE_EXTENSION}", None
+        )
+        with indexer.stage(expected_data.path, expected_data.relative_path):
+            self.assertTrue(os.path.isfile(expected_data.backup_path))
+        self.assertFalse(os.path.isfile(expected_data.backup_path))
+        os.unlink(conflict_one_path)
+        os.unlink(conflict_two_path)
+        os.unlink(test_path)
+
     def test_revert_new_file(self) -> None:
         indexer = Indexer(self._base_folder)
         test_path = os.path.join(self._base_folder, "ABC")
@@ -309,7 +331,7 @@ class TestIndexer(TestCase):
             test_path, "ABC", f"{test_path}{BACKUP_FILE_EXTENSION}", None
         )
         with indexer.stage(expected_data.path, expected_data.relative_path):
-            self._write_random_file(expected_data.path, 512)
+            self._write_random_file(expected_data.relative_path, 512)
             self.assertTrue(os.path.isfile(expected_data.path))
             indexer.update(expected_data.relative_path)
             self.assertEqual(
@@ -337,7 +359,7 @@ class TestIndexer(TestCase):
             self.assertEqual(value, indexer.get_index(key))
         try:
             with indexer.stage(expected_data.path, expected_data.relative_path):
-                self._write_random_file(expected_data.path, 512)
+                self._write_random_file(expected_data.relative_path, 512)
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
@@ -347,7 +369,7 @@ class TestIndexer(TestCase):
             self.assertIsNone(indexer.staged_index_data)
         try:
             with indexer.stage(expected_data.path, expected_data.relative_path):
-                self._write_random_file(expected_data.path, 512)
+                self._write_random_file(expected_data.relative_path, 512)
                 indexer.update(expected_data.relative_path)
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
@@ -371,7 +393,7 @@ class TestIndexer(TestCase):
         with open(test_path, "rb") as file:
             original_data = file.read()
         with indexer.stage(expected_data.path, expected_data.relative_path):
-            self._write_random_file(expected_data.path, 16)
+            self._write_random_file(expected_data.relative_path, 16)
             self.assertTrue(os.path.isfile(expected_data.path))
             with open(test_path, "rb") as file:
                 self.assertNotEqual(original_data, file.read())
@@ -401,7 +423,7 @@ class TestIndexer(TestCase):
         self.assertIsNone(indexer.staged_index_data)
         try:
             with indexer.stage(expected_data.path, expected_data.relative_path):
-                self._write_random_file(expected_data.path, 16)
+                self._write_random_file(expected_data.relative_path, 16)
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
@@ -413,7 +435,7 @@ class TestIndexer(TestCase):
             self.assertIsNone(indexer.staged_index_data)
         try:
             with indexer.stage(expected_data.path, expected_data.relative_path):
-                self._write_random_file(expected_data.path, 16)
+                self._write_random_file(expected_data.relative_path, 16)
                 indexer.update(expected_data.relative_path)
                 raise KeyboardInterrupt
         except KeyboardInterrupt:

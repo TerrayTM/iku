@@ -42,10 +42,12 @@ class Indexer:
         self._base_folder = base_folder
         self._index_path = os.path.join(base_folder, INDEX_NAME)
         self._diff = self.empty_diff()
+
         if os.path.exists(self._index_path):
             try:
                 with gzip.open(self._index_path, "rt", newline="") as file:
                     reader = csv.reader(file)
+
                     for index_row in reader:
                         path, file_hash, last_modified, size = index_row
                         self._index[path] = IndexRow(
@@ -152,7 +154,7 @@ class Indexer:
             self._staged_index_data = StagedIndexData(
                 path, relative_path, backup_path, self._index.get(relative_path)
             )
-            #unit tested
+
             while os.path.isfile(backup_path):
                 backup_path = f"{path}{counter}{BACKUP_FILE_EXTENSION}"
                 counter += 1
