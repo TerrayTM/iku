@@ -4,6 +4,7 @@ import sys
 import tempfile
 from unittest import TestCase, main
 
+from pywintypes import com_error
 from win32com.shell import shell, shellcon
 
 from iku.config import Config
@@ -84,7 +85,7 @@ class TestFile(TestCase):
                 self._counter += 1
                 if self._counter != 2:
                     return self._stream.Read(size)
-                raise Exception()
+                raise com_error()
 
         file._stream = TestStream(stream)
         iterator = file.read()

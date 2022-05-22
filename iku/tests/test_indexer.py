@@ -174,19 +174,19 @@ class TestIndexer(TestCase):
         self._write_random_file("one\\value", 256)
         self._write_random_file("one\\A", 256)
         timestamp = os.path.getmtime(os.path.join(self._base_folder, "value"))
-        indexer.update("value", timestamp, 256)
+        indexer.update("value")
         self.assertEqual(
             indexer.get_index("value"),
             IndexRow("e9d58068fce4cf9b185bc5e41c757423", timestamp, 256),
         )
         timestamp = os.path.getmtime(os.path.join(self._base_folder, "one\\value"))
-        indexer.update("one\\value", timestamp, 256)
+        indexer.update("one\\value")
         self.assertEqual(
             indexer.get_index("one\\value"),
             IndexRow("9f297dcc8acf39c43b08d8e99a53ab76", timestamp, 256),
         )
         timestamp = os.path.getmtime(os.path.join(self._base_folder, "one\\A"))
-        indexer.update("one\\A", timestamp, 256)
+        indexer.update("one\\A")
         self.assertEqual(
             indexer.get_index("one\\A"),
             IndexRow("0b6bf4795989136bcce920caf113347e", timestamp, 256),
@@ -203,7 +203,7 @@ class TestIndexer(TestCase):
         self._index_map["value"] = ("e9d58068fce4cf9b185bc5e41c757423", "256")
         self._index_map["one\\value"] = ("9f297dcc8acf39c43b08d8e99a53ab76", "256")
         self._index_map["one\\A"] = ("0b6bf4795989136bcce920caf113347e", "256")
-        self.assertRaises(FileNotFoundError, indexer.update, "M", 100.0, 200)
+        self.assertRaises(FileNotFoundError, indexer.update, "M")
 
     def test_match(self) -> None:
         indexer = Indexer(self._base_folder)
@@ -219,10 +219,22 @@ class TestIndexer(TestCase):
 
     def test_validate(self) -> None:
         indexer = Indexer(self._base_folder)
-        self.assertFalse(indexer.validate("W", "ABC"))
-        self.assertFalse(indexer.validate("value", "ABC"))
-        self.assertFalse(indexer.validate("value", "ABC"))
-        self.assertTrue(indexer.validate("value", "e9d58068fce4cf9b185bc5e41c757423"))
+        timestamp = os.path.getmtime(os.path.join(self._base_folder, "value"))
+        self.assertFalse(indexer.validate("W", "ABC", 100, 100))
+        self.assertFalse(indexer.validate("value", "ABC", 100, 100))
+        self.assertFalse(
+            indexer.validate("value", "e9d58068fce4cf9b185bc5e41c757423", 100, 100)
+        )
+        self.assertFalse(
+            indexer.validate(
+                "value", "e9d58068fce4cf9b185bc5e41c757423", timestamp, 100
+            )
+        )
+        self.assertTrue(
+            indexer.validate(
+                "value", "e9d58068fce4cf9b185bc5e41c757423", timestamp, 256
+            )
+        )
 
     def test_find_duplicates(self) -> None:
         pass
@@ -299,9 +311,10 @@ class TestIndexer(TestCase):
         with indexer.stage(expected_data.path, expected_data.relative_path):
             self._write_random_file(expected_data.path, 512)
             self.assertTrue(os.path.isfile(expected_data.path))
-            indexer.update(expected_data.relative_path, 100.0, 512)
+            indexer.update(expected_data.relative_path)
             self.assertEqual(
-                indexer.get_index(expected_data.relative_path).last_modified, 100.0
+                os.path.getmtime(test_path),
+                indexer.get_index(expected_data.relative_path).last_modified,
             )
             self.assertEqual(
                 indexer.diff,
@@ -335,7 +348,7 @@ class TestIndexer(TestCase):
         try:
             with indexer.stage(expected_data.path, expected_data.relative_path):
                 self._write_random_file(expected_data.path, 512)
-                indexer.update(expected_data.relative_path, 100.0, 512)
+                indexer.update(expected_data.relative_path)
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
@@ -362,9 +375,10 @@ class TestIndexer(TestCase):
             self.assertTrue(os.path.isfile(expected_data.path))
             with open(test_path, "rb") as file:
                 self.assertNotEqual(original_data, file.read())
-            indexer.update(expected_data.relative_path, 200.0, 16)
+            indexer.update(expected_data.relative_path)
             self.assertEqual(
-                indexer.get_index(expected_data.relative_path).last_modified, 200.0
+                os.path.getmtime(test_path),
+                indexer.get_index(expected_data.relative_path).last_modified,
             )
             self.assertEqual(
                 indexer.diff,
@@ -400,7 +414,7 @@ class TestIndexer(TestCase):
         try:
             with indexer.stage(expected_data.path, expected_data.relative_path):
                 self._write_random_file(expected_data.path, 16)
-                indexer.update(expected_data.relative_path, 200.0, 16)
+                indexer.update(expected_data.relative_path)
                 raise KeyboardInterrupt
         except KeyboardInterrupt:
             indexer.revert()
