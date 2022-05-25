@@ -2,9 +2,10 @@ import os
 from typing import Iterator
 
 from pythoncom import IID_IStream
+from pywintypes import com_error
 
 from iku.config import Config
-from iku.exceptions import DeviceFileReadException
+from iku.exceptions import DeviceFileReadException, DeviceFileSeekException
 from iku.types import PIDL, FileInfo, PyIShellFolder
 
 
@@ -12,7 +13,7 @@ class DeviceFile:
     def __init__(self, pidl: PIDL, parent: PyIShellFolder, parent_name: str) -> None:
         """
         Represents a file on a device and provides utilities for reading the file in
-        chunks.
+        chunks. A file read stream will be opened automatically upon construction.
 
         Parameters
         ----------
@@ -25,6 +26,8 @@ class DeviceFile:
         parent_name : str
             The name of the parent folder of the file.
         """
+        self._pidl = pidl
+        self._parent = parent
         self._stream = parent.BindToStorage(pidl, None, IID_IStream)
         self._file_info = FileInfo(*self._stream.Stat())
         self._relative_path = os.path.join(parent_name, self._file_info.name)
@@ -33,7 +36,27 @@ class DeviceFile:
         """
         Resets the seek of the file read stream to 0.
         """
-        self._stream.Seek(0, 0)
+        try:
+            self._stream.Seek(0, 0)
+        except com_error:
+            raise DeviceFileSeekException()
+
+    def reopen(self) -> bool:
+        """
+        Attempts to reopen the file stream for reading.
+
+        Returns
+        -------
+        result : bool
+            Whether the operation succeeded or not.
+        """
+        try:
+            self._stream = self._parent.BindToStorage(self._pidl, None, IID_IStream)
+            self._file_info = FileInfo(*self._stream.Stat())
+        except com_error:
+            return False
+
+        return True
 
     def read(self) -> Iterator[bytes]:
         """
@@ -52,7 +75,7 @@ class DeviceFile:
                     break
 
                 yield chunk
-        except:
+        except com_error:
             raise DeviceFileReadException()
 
     @property
