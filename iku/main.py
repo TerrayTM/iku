@@ -5,18 +5,10 @@ from tabulate import tabulate
 
 from iku.config import Config
 from iku.console import format_cyan, format_green, format_red, output
-from iku.constants import (
-    DIFF_ADDED,
-    DIFF_MODIFIED,
-    DIFF_REMOVED,
-    RC_FAILED,
-    RC_INTERRUPTED,
-    RC_INVALID_ARGUMENT,
-    RC_MISSING_INFO,
-    RC_NO_DEVICE_FOUND,
-    RC_NO_DEVICE_WITH_NAME,
-    RC_OK,
-)
+from iku.constants import (DIFF_ADDED, DIFF_MODIFIED, DIFF_REMOVED, RC_FAILED,
+                           RC_INTERRUPTED, RC_INVALID_ARGUMENT,
+                           RC_MISSING_INFO, RC_NO_DEVICE_FOUND,
+                           RC_NO_DEVICE_WITH_NAME, RC_OK)
 from iku.core import synchronize_to_folder
 from iku.driver import bind_iphone_drivers
 from iku.exceptions import KeyboardInterruptWithDataException
@@ -54,14 +46,8 @@ def _print_sync_result(result: SynchronizationResult, success: bool):
                 "Size Copied",  # size copied
                 format_cyan(format_file_size(details.size_copied)),
             ],
-            [
-                "Size Skipped",
-                format_cyan(format_file_size(details.size_skipped)),
-            ],
-            [
-                "Progress",
-                format_cyan(progress) if success else format_red(progress),
-            ],
+            ["Size Skipped", format_cyan(format_file_size(details.size_skipped)),],
+            ["Progress", format_cyan(progress) if success else format_red(progress),],
         ],
         tablefmt="pretty",
         colalign=("left", "right"),
@@ -74,18 +60,9 @@ def _print_sync_result(result: SynchronizationResult, success: bool):
     output(
         tabulate(
             [
-                [
-                    "Added",
-                    format_cyan(len(result.sync_diff[DIFF_ADDED])),
-                ],
-                [
-                    "Modified",
-                    format_cyan(len(result.sync_diff[DIFF_MODIFIED])),
-                ],
-                [
-                    "Removed",
-                    format_cyan(len(result.sync_diff[DIFF_REMOVED])),
-                ],
+                ["Added", format_cyan(len(result.sync_diff[DIFF_ADDED])),],
+                ["Modified", format_cyan(len(result.sync_diff[DIFF_MODIFIED])),],
+                ["Removed", format_cyan(len(result.sync_diff[DIFF_REMOVED])),],
             ],
             headers=("Difference", "Files"),
             tablefmt="pretty",

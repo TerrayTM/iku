@@ -6,14 +6,11 @@ from pathlib import Path
 from typing import Callable, Optional
 
 from iku.config import Config
+from iku.console import clear_last_output, output
 from iku.constants import STEP_ONE_TEXT, STEP_TWO_TEXT
 from iku.driver import iPhoneDriver
-from iku.exceptions import (
-    DeviceFileReadException,
-    DeviceFileSeekException,
-    KeyboardInterruptWithDataException,
-)
-from iku.console import clear_last_output, output
+from iku.exceptions import (DeviceFileReadException, DeviceFileSeekException,
+                            KeyboardInterruptWithDataException)
 from iku.file import DeviceFile
 from iku.indexer import Indexer
 from iku.tools import create_progress_bar, write_ctime
@@ -130,12 +127,7 @@ def _synchronize_files(
                 os.rmdir(dirpath)
 
     return SynchronizationDetails(
-        files_copied,
-        files_skipped,
-        size_discovered,
-        size_copied,
-        size_skipped,
-        None,
+        files_copied, files_skipped, size_discovered, size_copied, size_skipped, None,
     )
 
 
@@ -176,11 +168,7 @@ def synchronize_to_folder(
     try:
         with create_progress_bar(STEP_TWO_TEXT, total_files) as on_progress:
             details = _synchronize_files(
-                driver,
-                base_folder,
-                indexer,
-                total_files,
-                on_progress,
+                driver, base_folder, indexer, total_files, on_progress,
             )
     except KeyboardInterruptWithDataException as exception:
         result = SynchronizationResult(
@@ -199,10 +187,5 @@ def synchronize_to_folder(
     indexer.commit()
 
     return SynchronizationResult(
-        files_indexed,
-        total_indices,
-        total_files,
-        details,
-        index_diff,
-        sync_diff,
+        files_indexed, total_indices, total_files, details, index_diff, sync_diff,
     )

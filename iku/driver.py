@@ -3,12 +3,8 @@ from typing import Iterable, List, Optional
 from pywintypes import com_error
 from win32com.shell import shell, shellcon
 
-from iku.constants import (
-    DCIM_NAME,
-    DEVICE_IPHONE,
-    INTERNAL_STORAGE_NAME,
-    PC_DISPLAY_NAMES,
-)
+from iku.constants import (DCIM_NAME, DEVICE_IPHONE, INTERNAL_STORAGE_NAME,
+                           PC_DISPLAY_NAMES)
 from iku.file import DeviceFile
 from iku.types import PIDL, DeviceInfo, PyIShellFolder
 

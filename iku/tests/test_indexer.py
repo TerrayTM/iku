@@ -8,13 +8,8 @@ from pathlib import Path
 from typing import Dict, Iterator, List
 from unittest import TestCase, main
 
-from iku.constants import (
-    BACKUP_FILE_EXTENSION,
-    DIFF_ADDED,
-    DIFF_MODIFIED,
-    DIFF_REMOVED,
-    INDEX_NAME,
-)
+from iku.constants import (BACKUP_FILE_EXTENSION, DIFF_ADDED, DIFF_MODIFIED,
+                           DIFF_REMOVED, INDEX_NAME)
 from iku.exceptions import NotManagedByIndexException
 from iku.indexer import Indexer
 from iku.tests.tools import SequentialTestLoader
@@ -111,11 +106,7 @@ class TestIndexer(TestCase):
         self.assertFalse(os.path.isfile(os.path.join(self._base_folder, "C")))
         self.assertEqual(
             indexer.diff,
-            {
-                DIFF_ADDED: [],
-                DIFF_MODIFIED: [],
-                DIFF_REMOVED: ["A", "B", "C"],
-            },
+            {DIFF_ADDED: [], DIFF_MODIFIED: [], DIFF_REMOVED: ["A", "B", "C"],},
         )
         self.assertRaises(NotManagedByIndexException, indexer.destroy, "Z")
 
@@ -340,11 +331,7 @@ class TestIndexer(TestCase):
             )
             self.assertEqual(
                 indexer.diff,
-                {
-                    DIFF_ADDED: ["ABC"],
-                    DIFF_MODIFIED: [],
-                    DIFF_REMOVED: [],
-                },
+                {DIFF_ADDED: ["ABC"], DIFF_MODIFIED: [], DIFF_REMOVED: [],},
             )
             indexer.revert()
         self.assertEqual(indexer.diff, Indexer.empty_diff())
@@ -404,11 +391,7 @@ class TestIndexer(TestCase):
             )
             self.assertEqual(
                 indexer.diff,
-                {
-                    DIFF_ADDED: [],
-                    DIFF_MODIFIED: ["one\\value"],
-                    DIFF_REMOVED: [],
-                },
+                {DIFF_ADDED: [], DIFF_MODIFIED: ["one\\value"], DIFF_REMOVED: [],},
             )
             indexer.revert()
         self.assertEqual(indexer.diff, Indexer.empty_diff())

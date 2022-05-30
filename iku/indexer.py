@@ -10,17 +10,10 @@ import win32api
 import win32con
 
 from iku.config import Config
-from iku.constants import (
-    BACKUP_FILE_EXTENSION,
-    DIFF_ADDED,
-    DIFF_MODIFIED,
-    DIFF_REMOVED,
-    INDEX_NAME,
-)
-from iku.exceptions import (
-    KeyboardInterruptWithDataException,
-    NotManagedByIndexException,
-)
+from iku.constants import (BACKUP_FILE_EXTENSION, DIFF_ADDED, DIFF_MODIFIED,
+                           DIFF_REMOVED, INDEX_NAME)
+from iku.exceptions import (KeyboardInterruptWithDataException,
+                            NotManagedByIndexException)
 from iku.tools import delay_keyboard_interrupt
 from iku.types import IndexRow, StagedIndexData
 
@@ -295,9 +288,7 @@ class Indexer:
         self._set_index(
             relative_path,
             IndexRow(
-                self._hash_file(path),
-                os.path.getmtime(path),
-                os.path.getsize(path),
+                self._hash_file(path), os.path.getmtime(path), os.path.getsize(path),
             ),
         )
 

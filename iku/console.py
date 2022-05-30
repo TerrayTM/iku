@@ -1,5 +1,6 @@
 from iku.config import Config
-from iku.constants import CONSOLE_CYAN, CONSOLE_END_COLOR, CONSOLE_GREEN, CONSOLE_RED
+from iku.constants import (CONSOLE_CYAN, CONSOLE_END_COLOR, CONSOLE_GREEN,
+                           CONSOLE_RED)
 
 
 def format_green(text: str) -> str:
