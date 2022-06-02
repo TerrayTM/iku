@@ -1,25 +1,23 @@
 import csv
 import gzip
-import hashlib
-import os
+import io
 from contextlib import contextmanager
-from pathlib import Path
 from typing import Callable, ContextManager, Dict, Iterator, List, Optional
 
 import win32api
 import win32con
 
-from iku.config import Config
 from iku.constants import (BACKUP_FILE_EXTENSION, DIFF_ADDED, DIFF_MODIFIED,
                            DIFF_REMOVED, INDEX_NAME)
 from iku.exceptions import (KeyboardInterruptWithDataException,
                             NotManagedByIndexException)
+from iku.systems import FileSystem
 from iku.tools import delay_keyboard_interrupt
 from iku.types import IndexRow, StagedIndexData
 
 
 class Indexer:
-    def __init__(self, base_folder: str) -> None:
+    def __init__(self, fs: FileSystem, base_folder: str) -> None:
         """
         The indexer controls the state of the destination folder such as what files are
         present and what changes can be undone. Upon initialization, it will load the
@@ -32,14 +30,16 @@ class Indexer:
         """
         self._index = {}
         self._staged_index_data = None
+        self._fs = fs
         self._base_folder = base_folder
-        self._index_path = os.path.join(base_folder, INDEX_NAME)
+        self._index_path = self._fs.join(base_folder, INDEX_NAME)
         self._diff = self.empty_diff()
 
-        if os.path.isfile(self._index_path):
+        if self._fs.isfile(self._index_path):
             try:
-                with gzip.open(self._index_path, "rt", newline="") as file:
-                    reader = csv.reader(file)
+                with self._fs.open(self._index_path, "rb") as file:
+                    source = io.StringIO(gzip.decompress(file.read()).decode("utf8"))
+                    reader = csv.reader(source)
 
                     for index_row in reader:
                         path, file_hash, last_modified, size = index_row
@@ -48,7 +48,7 @@ class Indexer:
                         )
             except (csv.Error, UnicodeDecodeError, OSError, EOFError):
                 self._index = {}
-                os.unlink(self._index_path)
+                self._fs.unlink(self._index_path)
 
     def _set_index(self, key: str, value: IndexRow) -> None:
         """
@@ -80,33 +80,6 @@ class Indexer:
         """
         self._index.pop(key)
         self._diff[DIFF_REMOVED].append(key)
-
-    def _hash_file(self, path: str) -> str:
-        """
-        Computes the MD5 hash of a given file.
-
-        Parameters
-        ----------
-        path : str
-            The absolute path of the file.
-
-        Returns
-        -------
-        result : str
-            The MD5 hash of the file.
-        """
-        file_hash = hashlib.md5()
-
-        with open(path, "rb") as f:
-            while True:
-                data = f.read(Config.buffer_size)
-
-                if not data:
-                    break
-
-                file_hash.update(data)
-
-        return file_hash.hexdigest()
 
     @staticmethod
     def empty_diff() -> Dict[str, List[str]]:
@@ -148,21 +121,21 @@ class Indexer:
                 path, relative_path, backup_path, self._index.get(relative_path)
             )
 
-            while os.path.isfile(backup_path):
+            while self._fs.isfile(backup_path):
                 backup_path = f"{path}{counter}{BACKUP_FILE_EXTENSION}"
                 counter += 1
 
-            if os.path.isfile(path):
-                os.rename(path, backup_path)
+            if self._fs.isfile(path):
+                self._fs.rename(path, backup_path)
 
         yield
 
         with delay_keyboard_interrupt():
-            if os.path.isfile(path):
-                if os.path.isfile(backup_path):
-                    os.unlink(backup_path)
-            elif os.path.isfile(backup_path):
-                os.rename(backup_path, path)
+            if self._fs.isfile(path):
+                if self._fs.isfile(backup_path):
+                    self._fs.unlink(backup_path)
+            elif self._fs.isfile(backup_path):
+                self._fs.rename(backup_path, path)
 
             self._staged_index_data = None
 
@@ -187,11 +160,11 @@ class Indexer:
                 self._index[relative_path] = index_row
                 self._diff[DIFF_MODIFIED].remove(relative_path)
 
-            if os.path.isfile(self._staged_index_data.path):
-                os.unlink(self._staged_index_data.path)
+            if self._fs.isfile(self._staged_index_data.path):
+                self._fs.unlink(self._staged_index_data.path)
 
-            if os.path.isfile(self._staged_index_data.backup_path):
-                os.rename(
+            if self._fs.isfile(self._staged_index_data.backup_path):
+                self._fs.rename(
                     self._staged_index_data.backup_path, self._staged_index_data.path
                 )
 
@@ -206,7 +179,7 @@ class Indexer:
             raise NotManagedByIndexException()
 
         self._pop_index(relative_path)
-        os.unlink(os.path.join(self._base_folder, relative_path))
+        self._fs.unlink(self._fs.join(self._base_folder, relative_path))
 
     def get_index(self, relative_path: str) -> IndexRow:
         """
@@ -250,12 +223,12 @@ class Indexer:
                 with delay_keyboard_interrupt():
                     keys.add(relative_path)
 
-                    file_path = os.path.join(self._base_folder, relative_path)
-                    last_modified = os.path.getmtime(file_path)
-                    size = os.path.getsize(file_path)
+                    file_path = self._fs.join(self._base_folder, relative_path)
+                    last_modified = self._fs.getmtime(file_path)
+                    size = self._fs.getsize(file_path)
 
                     if not self.match(relative_path, last_modified, size):
-                        file_hash = self._hash_file(file_path)
+                        file_hash = self._fs.md5_hash(file_path)
                         self._set_index(
                             relative_path, IndexRow(file_hash, last_modified, size)
                         )
@@ -280,15 +253,17 @@ class Indexer:
         relative_path : str
             The relative path for the index row you want to query.
         """
-        path = os.path.join(self._base_folder, relative_path)
+        path = self._fs.join(self._base_folder, relative_path)
 
-        if not os.path.isfile(path):
+        if not self._fs.isfile(path):
             raise FileNotFoundError()
 
         self._set_index(
             relative_path,
             IndexRow(
-                self._hash_file(path), os.path.getmtime(path), os.path.getsize(path),
+                self._fs.md5_hash(path),
+                self._fs.getmtime(path),
+                self._fs.getsize(path),
             ),
         )
 
@@ -302,16 +277,20 @@ class Indexer:
 
             self._diff = self.empty_diff()
 
-            if os.path.isfile(self._index_path):
-                os.unlink(self._index_path)
+            if self._fs.isfile(self._index_path):
+                self._fs.unlink(self._index_path)
 
-            with gzip.open(self._index_path, "wt", newline="") as file:
-                writer = csv.writer(file)
+            output = io.StringIO()
+            writer = csv.writer(output)
 
-                for path, index_row in self._index.items():
-                    writer.writerow([path, *index_row])
+            writer.writerows(
+                [path, *index_row] for path, index_row in self._index.items()
+            )
 
-            win32api.SetFileAttributes(self._index_path, win32con.FILE_ATTRIBUTE_HIDDEN)
+            with self._fs.open(self._index_path, "wb") as file:
+                file.write(gzip.compress(output.getvalue().encode("utf8")))
+
+            # win32api.SetFileAttributes(self._index_path, win32con.FILE_ATTRIBUTE_HIDDEN)
 
     def match(self, relative_path: str, last_modified: float, size: int) -> bool:
         """
@@ -408,10 +387,9 @@ class Indexer:
             An iterator of the relative paths.
         """
         return (
-            os.path.relpath(file_path, self._base_folder)
-            for file_path in Path(os.path.join(self._base_folder)).rglob("*")
-            if file_path.is_file()
-            and os.path.relpath(file_path, self._base_folder) != INDEX_NAME
+            self._fs.relpath(file_path, self._base_folder)
+            for file_path in self._fs.rglob_files()
+            if self._fs.relpath(file_path, self._base_folder) != INDEX_NAME
         )
 
     def count_managed_files(self) -> int:

@@ -12,6 +12,7 @@ from iku.constants import (BACKUP_FILE_EXTENSION, DIFF_ADDED, DIFF_MODIFIED,
                            DIFF_REMOVED, INDEX_NAME)
 from iku.exceptions import NotManagedByIndexException
 from iku.indexer import Indexer
+from iku.systems import FileSystem
 from iku.tests.tools import SequentialTestLoader
 from iku.types import IndexRow, StagedIndexData
 
@@ -43,6 +44,7 @@ class TestIndexer(TestCase):
             with open(full_path, "wb") as file:
                 file.write(data)
         cls._base_folder = base_folder
+        cls._fs = FileSystem(base_folder)
 
     @classmethod
     def tearDownClass(cls):
@@ -72,7 +74,7 @@ class TestIndexer(TestCase):
             file.write(data)
 
     def test_create_index(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self.assertEqual(0, indexer.index_count)
         indexer.synchronize()
         self.assertEqual(
@@ -90,14 +92,14 @@ class TestIndexer(TestCase):
             self.assertEqual(file.readlines(), self._generate_expected_index_raw())
 
     def test_load_index(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self.assertEqual(12, indexer.index_count)
         for key, value in self._generate_expected_index_rows().items():
             self.assertEqual(value, indexer.get_index(key))
         self.assertEqual(indexer.diff, Indexer.empty_diff())
 
     def test_destroy(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         indexer.destroy("A")
         indexer.destroy("B")
         indexer.destroy("C")
@@ -116,7 +118,7 @@ class TestIndexer(TestCase):
             data = random.getrandbits(2048).to_bytes(512, sys.byteorder)
             with open(os.path.join(self._base_folder, file), "wb") as file:
                 file.write(data)
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self.assertEqual(12, indexer.index_count)
         counter = 0
         hash_counter = 0
@@ -125,16 +127,16 @@ class TestIndexer(TestCase):
             nonlocal counter
             counter += 1
 
-        hash_file = indexer._hash_file
+        hash_file = self._fs.md5_hash
 
         def hash_file_with_counter(path: str):
             nonlocal hash_counter
             hash_counter += 1
             return hash_file(path)
 
-        indexer._hash_file = hash_file_with_counter
+        self._fs.md5_hash = hash_file_with_counter
         indexer.synchronize(update)
-        indexer._hash_file = hash_file
+        self._fs.md5_hash = hash_file
         self.assertEqual(10, indexer.index_count)
         self.assertEqual(10, counter)
         self.assertEqual(3, hash_counter)
@@ -160,7 +162,7 @@ class TestIndexer(TestCase):
             self.assertEqual(file.readlines(), self._generate_expected_index_raw())
 
     def test_update(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self._write_random_file("value", 256)
         self._write_random_file("one\\value", 256)
         self._write_random_file("one\\A", 256)
@@ -197,7 +199,7 @@ class TestIndexer(TestCase):
         self.assertRaises(FileNotFoundError, indexer.update, "M")
 
     def test_match(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self.assertFalse(indexer.match("unknown", 100, 100))
         self.assertFalse(indexer.match("value", 100, 100))
         timestamp = os.path.getmtime(os.path.join(self._base_folder, "value"))
@@ -205,11 +207,11 @@ class TestIndexer(TestCase):
         self.assertTrue(indexer.match("value", timestamp, 256))
 
     def test_get_index_failed(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self.assertRaises(NotManagedByIndexException, indexer.get_index, "Q")
 
     def test_validate(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         timestamp = os.path.getmtime(os.path.join(self._base_folder, "value"))
         self.assertFalse(indexer.validate("W", "ABC", 100, 100))
         self.assertFalse(indexer.validate("value", "ABC", 100, 100))
@@ -231,18 +233,18 @@ class TestIndexer(TestCase):
         pass
 
     def test_get_managed_relative_paths(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self.assertEqual(
             list(sorted(self._index_map.keys())),
             list(sorted(indexer.get_managed_relative_paths())),
         )
 
     def test_count_managed_files(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self.assertEqual(len(self._index_map), indexer.count_managed_files())
 
     def test_stage_new_file(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         test_path = os.path.join(self._base_folder, "ABC")
         expected_data = StagedIndexData(
             test_path, "ABC", f"{test_path}{BACKUP_FILE_EXTENSION}", None
@@ -267,7 +269,7 @@ class TestIndexer(TestCase):
         os.unlink(expected_data.backup_path)
 
     def test_stage_existing_file(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         test_path = os.path.join(self._base_folder, "one\\value")
         expected_data = StagedIndexData(
             test_path,
@@ -294,7 +296,7 @@ class TestIndexer(TestCase):
         os.rename(expected_data.backup_path, expected_data.path)
 
     def test_stage_conflict(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         conflict_one_path = os.path.join(
             self._base_folder, f"ABC{BACKUP_FILE_EXTENSION}"
         )
@@ -316,7 +318,7 @@ class TestIndexer(TestCase):
         os.unlink(test_path)
 
     def test_revert_new_file(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         test_path = os.path.join(self._base_folder, "ABC")
         expected_data = StagedIndexData(
             test_path, "ABC", f"{test_path}{BACKUP_FILE_EXTENSION}", None
@@ -372,7 +374,7 @@ class TestIndexer(TestCase):
             self.assertIsNone(indexer.staged_index_data)
 
     def test_revert_existing_file(self) -> None:
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         test_path = os.path.join(self._base_folder, "one\\value")
         expected_data = StagedIndexData(
             test_path, "one\\value", f"{test_path}{BACKUP_FILE_EXTENSION}", None
@@ -437,7 +439,7 @@ class TestIndexer(TestCase):
     def test_load_index_failed(self) -> None:
         os.unlink(os.path.join(self._base_folder, INDEX_NAME))
         self._write_random_file(INDEX_NAME, 128)
-        indexer = Indexer(self._base_folder)
+        indexer = Indexer(self._fs, self._base_folder)
         self.assertFalse(os.path.exists(indexer.index_path))
         self.assertEqual(0, indexer.index_count)
 

@@ -28,6 +28,14 @@ class DeviceInfo(NamedTuple):
 
 class FileInfo(NamedTuple):
     name: str
+    size: int
+    last_modified: float
+    created_time: Optional[float]
+    last_accessed: float
+
+
+class DeviceFileInfo(NamedTuple):
+    name: str
     storage_type: int
     size: int
     last_modified: TimeType

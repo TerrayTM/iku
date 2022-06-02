@@ -8,7 +8,7 @@ from pywintypes import com_error
 from win32com.shell import shell, shellcon
 
 from iku.config import Config
-from iku.exceptions import DeviceFileReadException
+from iku.exceptions import FileReadException
 from iku.file import DeviceFile
 from iku.tests.tools import SequentialTestLoader
 
@@ -90,7 +90,7 @@ class TestFile(TestCase):
         file._stream = TestStream(stream)
         iterator = file.read()
         self.assertEqual(self._data[:128], next(iterator))
-        self.assertRaises(DeviceFileReadException, lambda: next(iterator))
+        self.assertRaises(FileReadException, lambda: next(iterator))
         file._stream = stream
 
 

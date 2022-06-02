@@ -11,7 +11,7 @@ from iku.constants import FILE_EMPTY, FILE_SIZES
 
 
 @contextmanager
-def create_progress_bar(description, total) -> ContextManager:
+def create_progress_bar(description: str, total: int) -> ContextManager:
     if Config.silent:
         yield lambda: None
     else:
@@ -41,7 +41,7 @@ def delay_keyboard_interrupt() -> ContextManager:
         handler(*interrupt_signal)
 
 
-def write_ctime(filepath, timestamp):
+def write_ctime(filepath: str, timestamp: float):
     timestamp = int((timestamp * 10000000) + 116444736000000000)
     ctime = wintypes.FILETIME(timestamp & 0xFFFFFFFF, timestamp >> 32)
     handle = wintypes.HANDLE(

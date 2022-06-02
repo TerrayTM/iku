@@ -5,10 +5,10 @@ from tabulate import tabulate
 
 from iku.config import Config
 from iku.console import format_cyan, format_green, format_red, output
-from iku.constants import (DIFF_ADDED, DIFF_MODIFIED, DIFF_REMOVED, RC_FAILED,
-                           RC_INTERRUPTED, RC_INVALID_ARGUMENT,
-                           RC_MISSING_INFO, RC_NO_DEVICE_FOUND,
-                           RC_NO_DEVICE_WITH_NAME, RC_OK)
+from iku.constants import (DIFF_ADDED, DIFF_MODIFIED, DIFF_REMOVED,
+                           DISCOVER_COMMAND, RC_FAILED, RC_INTERRUPTED,
+                           RC_INVALID_ARGUMENT, RC_OK, SYNC_COMMAND)
+from iku.controller import get_consumer, get_provider
 from iku.core import synchronize_to_folder
 from iku.driver import bind_iphone_drivers
 from iku.exceptions import KeyboardInterruptWithDataException
@@ -21,11 +21,11 @@ from iku.version import __version__
 
 def _print_sync_result(result: SynchronizationResult, success: bool):
     details = result.details
-    index_progress = 50
+    index_progress = 50.0
     if result.total_indices > 0:
         index_progress = result.files_indexed / result.total_indices * 50
 
-    sync_progress = 50
+    sync_progress = 50.0
     if result.total_files > 0:
         sync_progress = (
             (details.files_copied + details.files_skipped) / result.total_files * 50
@@ -34,20 +34,17 @@ def _print_sync_result(result: SynchronizationResult, success: bool):
     progress = f"{round(index_progress + sync_progress, 2)}%"
     table = tabulate(
         [
-            ["Files Indexed", format_cyan(result.files_indexed)],
-            ["Files on Device", format_cyan(result.total_files)],
-            ["Files Copied", format_cyan(details.files_copied)],
-            ["Files Skipped", format_cyan(details.files_skipped)],
+            ["Files Indexed", format_cyan(str(result.files_indexed))],
+            ["Files on Device", format_cyan(str(result.total_files))],
+            ["Files Copied", format_cyan(str(details.files_copied))],
+            ["Files Skipped", format_cyan(str(details.files_skipped))],
             [
                 "Size Discovered",
                 format_cyan(format_file_size(details.size_discovered)),
             ],
-            [
-                "Size Copied",  # size copied
-                format_cyan(format_file_size(details.size_copied)),
-            ],
-            ["Size Skipped", format_cyan(format_file_size(details.size_skipped)),],
-            ["Progress", format_cyan(progress) if success else format_red(progress),],
+            ["Size Copied", format_cyan(format_file_size(details.size_copied))],
+            ["Size Skipped", format_cyan(format_file_size(details.size_skipped))],
+            ["Progress", format_cyan(progress) if success else format_red(progress)],
         ],
         tablefmt="pretty",
         colalign=("left", "right"),
@@ -60,9 +57,9 @@ def _print_sync_result(result: SynchronizationResult, success: bool):
     output(
         tabulate(
             [
-                ["Added", format_cyan(len(result.sync_diff[DIFF_ADDED])),],
-                ["Modified", format_cyan(len(result.sync_diff[DIFF_MODIFIED])),],
-                ["Removed", format_cyan(len(result.sync_diff[DIFF_REMOVED])),],
+                ["Added", format_cyan(str(len(result.sync_diff[DIFF_ADDED])))],
+                ["Modified", format_cyan(str(len(result.sync_diff[DIFF_MODIFIED])))],
+                ["Removed", format_cyan(str(len(result.sync_diff[DIFF_REMOVED])))],
             ],
             headers=("Difference", "Files"),
             tablefmt="pretty",
@@ -110,39 +107,17 @@ def _execute_sync_command(args: argparse.Namespace) -> int:
     Config.retries = args.retries
     Config.buffer_size = args.buffer_size
 
-    drivers = bind_iphone_drivers()
+    provider, rc = get_provider(args)
+    if rc != RC_OK:
+        return rc
 
-    if len(drivers) == 0:
-        output("No devices were detected on computer.")
-        return RC_NO_DEVICE_FOUND
-
-    selected_driver = drivers[0]
-
-    if args.device_name is not None:
-        selected_driver = next(
-            (driver for driver in drivers if driver.name == args.device_name), None
-        )
-
-        if selected_driver is None:
-            output(f'Device with name "{args.device_name}" is not found.')
-            output(f"Please choose one from the following list of device names:")
-
-            for driver in drivers:
-                output(f"- {driver.name}")
-
-            return RC_NO_DEVICE_WITH_NAME
-    elif len(drivers) > 1:
-        output("Found multiple devices:")
-        for driver in drivers:
-            output(f"- {driver.name}")
-
-        output("Please specify which device to sync from using --device-name argument.")
-
-        return RC_MISSING_INFO
+    consumer, rc = get_consumer(args)
+    if rc != RC_OK:
+        return rc
 
     try:
         rc = RC_OK
-        result = synchronize_to_folder(selected_driver, args.folder)
+        result = synchronize_to_folder(provider, consumer, args.destination_folder)
     except KeyboardInterruptWithDataException as exception:
         rc = RC_INTERRUPTED
         result = exception.data
@@ -182,9 +157,9 @@ def main() -> int:
     rc = RC_OK
     start_time = time.time()
 
-    if args.command == "discover":
+    if args.command == DISCOVER_COMMAND:
         rc = _execute_discover_command(args)
-    elif args.command == "sync":
+    elif args.command == SYNC_COMMAND:
         rc = _execute_sync_command(args)
 
     _print_status(rc, start_time)

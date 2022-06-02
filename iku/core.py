@@ -1,39 +1,35 @@
 import hashlib
-import os
 import time
-from ctypes import WinError
-from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 from iku.config import Config
 from iku.console import clear_last_output, output
 from iku.constants import STEP_ONE_TEXT, STEP_TWO_TEXT
-from iku.driver import iPhoneDriver
-from iku.exceptions import (DeviceFileReadException, DeviceFileSeekException,
+from iku.exceptions import (FileReadException, FileSeekException,
                             KeyboardInterruptWithDataException)
 from iku.file import DeviceFile
 from iku.indexer import Indexer
-from iku.tools import create_progress_bar, write_ctime
+from iku.provider import Provider
+from iku.systems import FileSystem
+from iku.tools import create_progress_bar
 from iku.types import SynchronizationDetails, SynchronizationResult
 
 
-def _write_to_target(target_path: str, file: DeviceFile, indexer: Indexer) -> bool:
+def _write_to_target(
+    fs: FileSystem, target_path: str, file: DeviceFile, indexer: Indexer
+) -> Tuple[bool, bool]:
     try:
         with indexer.stage(target_path, file.relative_path):
             source_hash = hashlib.md5()
             file.reset_seek()
 
-            with open(target_path, "wb") as target_file:
+            with fs.open(target_path, "wb") as target_file:
                 for data in file.read():
                     source_hash.update(data)
                     target_file.write(data)
 
-            os.utime(target_path, (file.last_accessed, file.last_modified))
-
-            try:
-                write_ctime(target_path, file.created_time)
-            except WinError:
-                pass  # check this
+            fs.utime(target_path, (file.last_accessed, file.last_modified))
+            fs.ctime(target_path, file.created_time)
             indexer.update(file.relative_path)
 
             if not indexer.validate(
@@ -44,9 +40,8 @@ def _write_to_target(target_path: str, file: DeviceFile, indexer: Indexer) -> bo
             ):
                 indexer.revert()
                 return False, True
-    except (DeviceFileReadException, DeviceFileSeekException):
+    except (FileReadException, FileSeekException):
         indexer.revert()
-
         return False, file.reopen()
     except KeyboardInterrupt:
         indexer.revert()
@@ -56,12 +51,13 @@ def _write_to_target(target_path: str, file: DeviceFile, indexer: Indexer) -> bo
 
 
 def _synchronize_files(
-    driver: iPhoneDriver,
+    provider: Provider,
+    consumer: FileSystem,
     base_folder: str,
     indexer: Indexer,
     total_files: int,
     on_progress: Optional[Callable[[], None]] = None,
-) -> SynchronizationResult:
+) -> SynchronizationDetails:
     all_files = set()
     files_copied = 0
     files_skipped = 0
@@ -70,17 +66,19 @@ def _synchronize_files(
     size_skipped = 0
 
     try:
-        for index, file in enumerate(driver.list_files()):
+        for index, file in enumerate(provider.list_files()):
             all_files.add(file.relative_path)
             size_discovered += file.size
 
             if not indexer.match(file.relative_path, file.last_modified, file.size):
                 success = False
-                target_path = os.path.join(base_folder, file.relative_path)
-                Path(os.path.dirname(target_path)).mkdir(parents=True, exist_ok=True)
+                target_path = consumer.join(base_folder, file.relative_path)
+                consumer.mkdir(consumer.dirname(target_path))
 
                 for _ in range(Config.retries):
-                    success, should_retry = _write_to_target(target_path, file, indexer)
+                    success, should_retry = _write_to_target(
+                        consumer, target_path, file, indexer
+                    )
 
                     if success or not should_retry:
                         break
@@ -105,7 +103,6 @@ def _synchronize_files(
 
             if index + 1 < total_files:
                 time.sleep(Config.delay)
-
     except KeyboardInterrupt:
         raise KeyboardInterruptWithDataException(
             SynchronizationDetails(
@@ -122,9 +119,7 @@ def _synchronize_files(
         for file in set(indexer.get_managed_relative_paths()) - all_files:
             indexer.destroy(file)
 
-        for dirpath, dirs, files in os.walk(base_folder):
-            if not dirs and not files:
-                os.rmdir(dirpath)
+        consumer.remove_empty_folders()
 
     return SynchronizationDetails(
         files_copied, files_skipped, size_discovered, size_copied, size_skipped, None,
@@ -132,14 +127,14 @@ def _synchronize_files(
 
 
 def synchronize_to_folder(
-    driver: iPhoneDriver, base_folder: str
+    provider: Provider, consumer: FileSystem, destination_folder: str
 ) -> SynchronizationResult:
     output("Enumerating objects...")
 
     try:
-        indexer = Indexer(base_folder)
+        indexer = Indexer(consumer, destination_folder)
         total_indices = indexer.count_managed_files()
-        total_files = driver.count_files()
+        total_files = provider.count_files()
     except KeyboardInterrupt:
         clear_last_output()
         raise
@@ -168,7 +163,12 @@ def synchronize_to_folder(
     try:
         with create_progress_bar(STEP_TWO_TEXT, total_files) as on_progress:
             details = _synchronize_files(
-                driver, base_folder, indexer, total_files, on_progress,
+                provider,
+                consumer,
+                destination_folder,
+                indexer,
+                total_files,
+                on_progress,
             )
     except KeyboardInterruptWithDataException as exception:
         result = SynchronizationResult(

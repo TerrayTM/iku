@@ -5,11 +5,11 @@ class NotManagedByIndexException(Exception):
     pass
 
 
-class DeviceFileReadException(Exception):
+class FileReadException(Exception):
     pass
 
 
-class DeviceFileSeekException(Exception):
+class FileSeekException(Exception):
     pass
 
 

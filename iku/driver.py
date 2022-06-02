@@ -6,10 +6,11 @@ from win32com.shell import shell, shellcon
 from iku.constants import (DCIM_NAME, DEVICE_IPHONE, INTERNAL_STORAGE_NAME,
                            PC_DISPLAY_NAMES)
 from iku.file import DeviceFile
+from iku.provider import Provider
 from iku.types import PIDL, DeviceInfo, PyIShellFolder
 
 
-class iPhoneDriver:
+class iPhoneDriver(Provider):
     def __init__(self, device_info: DeviceInfo) -> None:
         self._name = device_info.device_name
         self._dcim_folder = device_info.dcim_parent.BindToObject(
